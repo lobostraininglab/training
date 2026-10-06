@@ -1,0 +1,1066 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lobos Training Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Navy, sky blue, silver, white */
+  --paper:#EEF2F7;--surface:#FFFFFF;--ink:#0B1B3A;--muted:#5C6878;--line:#C9D1DC;
+  --brand:#0B2545;--brand-ink:#FFFFFF;--go:#1A7FBF;--go-soft:#E0F0FA;--streak:#1A7FBF;--soft:#E3E8EF;--danger:#B3372E;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+  font-family:Barlow,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#06142B;--surface:#0E2140;--ink:#EEF3F9;--muted:#A9B4C4;--line:#24395C;
+  --brand:#7CC4F0;--brand-ink:#06142B;--go:#7CC4F0;--go-soft:#12304F;--streak:#9ED3F5;--soft:#16294A;--danger:#F08A80;}}
+:root[data-theme="dark"]{
+  --paper:#06142B;--surface:#0E2140;--ink:#EEF3F9;--muted:#A9B4C4;--line:#24395C;
+  --brand:#7CC4F0;--brand-ink:#06142B;--go:#7CC4F0;--go-soft:#12304F;--streak:#9ED3F5;--soft:#16294A;--danger:#F08A80;}
+html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--paper);font-size:17px;line-height:1.45}
+h1,h2,h3{font-family:"Barlow Condensed",Barlow,"Arial Narrow",sans-serif;font-weight:700;line-height:1.1;margin:0;letter-spacing:.01em}
+h2{font-size:1.6rem}h3{font-size:1.25rem}
+p{margin:.35rem 0}
+a{color:var(--brand)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+.wrap{max-width:640px;margin:0 auto;padding:0 16px}
+main{max-width:640px;margin:0 auto;padding:16px 16px 110px}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:10px;padding-bottom:10px}
+.top h1{font-size:1.35rem}
+.sub{color:var(--muted);font-size:.9rem;margin:0}
+.link{background:none;border:0;color:var(--brand);font-weight:600;padding:8px 4px}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabs .wrap{display:grid;grid-auto-flow:column;grid-auto-columns:1fr}
+.tabs button{background:none;border:0;padding:14px 4px;font-weight:600;color:var(--muted);border-top:3px solid transparent}
+.tabs button[aria-current="page"]{color:var(--ink);border-top-color:var(--brand)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:10px 0}
+.btn{background:var(--brand);color:var(--brand-ink);border:0;border-radius:8px;padding:11px 16px;font-weight:600}
+.btn.ghost{background:transparent;color:var(--brand);border:1.5px solid var(--brand)}
+.btn.go{background:var(--go);color:#fff}
+.btn.small{padding:7px 12px;font-size:.92rem}
+.btn.danger{background:transparent;color:var(--danger);border:1.5px solid var(--danger)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.between{justify-content:space-between}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:4px 0 8px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 14px;font-weight:500;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
+label{display:block;font-weight:600;font-size:.92rem;margin:12px 0 4px}
+input,select,textarea{width:100%;background:var(--surface);border:1.5px solid var(--line);border-radius:8px;padding:10px 12px}
+textarea{min-height:84px;resize:vertical}
+.muted{color:var(--muted)}
+.small{font-size:.9rem}
+.err{color:var(--danger);font-weight:600;min-height:1.4em}
+/* login */
+.login{max-width:420px;margin:0 auto;padding:48px 20px 40px}
+.wordmark{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:3.2rem;line-height:.95;margin:0 0 10px}
+.wordmark span{display:block;color:var(--muted);font-size:1.6rem;font-weight:600}
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1.5px solid var(--line);border-radius:10px;overflow:hidden;margin:22px 0 4px}
+.seg button{border:0;background:var(--surface);padding:11px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink)}
+.hint{margin-top:22px;padding:12px 14px;border-radius:10px;background:var(--soft);font-size:.92rem}
+/* player hero: the scoreboard */
+.hero{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center;padding:8px 0 4px}
+.big{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:6.5rem;line-height:.85;color:var(--streak);font-variant-numeric:tabular-nums}
+.hero h2{font-size:1.9rem}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin:16px 0 6px}
+.day{text-align:center;font-size:.8rem;color:var(--muted)}
+.day i{display:block;height:10px;border-radius:5px;background:var(--line);margin-bottom:4px}
+.day.on i{background:var(--streak)}
+.day.today{color:var(--ink);font-weight:600}
+.bar{height:8px;border-radius:4px;background:var(--line);overflow:hidden;margin:6px 0 2px}
+.bar b{display:block;height:100%;background:var(--go);transition:width .3s}
+.drill{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start}
+.drill.done{background:var(--go-soft);border-color:var(--go)}
+.target{font-weight:600}
+.tick{min-width:84px}
+.lb{display:grid;grid-template-columns:2rem 1fr auto;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.lb:last-child{border-bottom:0}
+.lb .pos{font-family:"Barlow Condensed",sans-serif;font-size:1.4rem;font-weight:700;color:var(--muted)}
+.lb.me{font-weight:600}
+.lb.me .pos{color:var(--brand)}
+.pts{font-variant-numeric:tabular-nums;font-weight:600;text-align:right}
+.badge{display:grid;grid-template-columns:48px 1fr;gap:12px;align-items:center}
+.medal{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;font-size:1.5rem;background:var(--soft);filter:grayscale(1);opacity:.5}
+.badge.got .medal{background:var(--go-soft);filter:none;opacity:1}
+/* plans */
+.plan{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:14px 16px;margin:10px 0}
+.plan h3{margin-bottom:4px}
+.meta{color:var(--muted);font-size:.9rem}
+.detail h2{font-size:2rem;margin:8px 0 4px}
+.detail h3{margin:20px 0 6px;padding-top:14px;border-top:1px solid var(--line)}
+.detail ul{padding-left:1.2rem;margin:.3rem 0}
+.detail li{margin:.25rem 0}
+.phase{white-space:pre-line}
+.squad{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
+.squad:last-child{border-bottom:0}
+.dot{width:12px;height:12px;border-radius:50%;background:var(--line);display:inline-block}
+.dot.on{background:var(--go)}
+.fig{margin:14px 0 6px}
+.dg{display:block;width:100%;height:auto;border-radius:10px}
+.fig figcaption{font-size:.92rem;color:var(--muted);margin-top:6px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.82rem;color:var(--muted);margin-top:6px}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend svg{width:18px;height:12px}
+ol.kp{padding-left:0;list-style:none;counter-reset:kp;margin:.3rem 0}
+ol.kp li{counter-increment:kp;display:grid;grid-template-columns:24px 1fr;gap:8px;margin:.4rem 0}
+ol.kp li::before{content:counter(kp);width:22px;height:22px;border-radius:50%;background:#FFD23F;color:#172036;font-weight:700;font-size:.8rem;display:grid;place-items:center;border:1px solid #172036}
+.bands{display:flex;gap:16px;flex-wrap:wrap}
+.bands label{display:flex;align-items:center;gap:6px;font-weight:500;margin:4px 0}
+.bands input{width:auto}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:12px 18px;border-radius:10px;font-weight:600;z-index:9;max-width:90vw;text-align:center}
+
+/* ===== Responsive layouts ===== */
+.srctag{display:inline-block;margin-top:6px;font-size:.78rem;font-weight:600;color:var(--brand);background:var(--go-soft);border-radius:999px;padding:2px 9px}
+.bankh{margin-top:26px}
+.mhide{display:none}
+.split,.dsplit,.tsplit,.lbgrid{display:block}
+@media (min-width:720px){
+  .wrap,main{max-width:900px}
+  #planlist,.badges,.tdrills,.bank{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;align-items:start}
+  #planlist .plan,.badges .card,.tdrills .card,.bank .card{margin:0;height:100%}
+  #planlist>p{grid-column:1/-1}
+  /* mouse users can't swipe: wrap every chip row instead of side-scrolling */
+  .chips{flex-wrap:wrap;overflow:visible}
+}
+@media (min-width:1000px){
+  body{font-size:16.5px}
+  .wrap,main{max-width:1220px;padding-left:28px;padding-right:28px}
+  main{padding-top:24px;padding-bottom:48px}
+  .top{position:static}
+  .top h1{font-size:1.6rem}
+  .tabs{position:sticky;top:0;bottom:auto;border-top:0;border-bottom:1px solid var(--line);padding-bottom:0}
+  .tabs .wrap{grid-auto-columns:max-content;gap:6px}
+  .tabs button{padding:14px 18px;border-top:0;border-bottom:3px solid transparent}
+  .tabs button[aria-current="page"]{border-bottom-color:var(--brand)}
+  .toast{bottom:28px}
+  .chips.wrapdesk{flex-wrap:wrap;overflow:visible}
+  .mhide{display:block}.dhide{display:none}
+  /* plans: filter sidebar + grid */
+  .plansgrid{display:grid;grid-template-columns:270px 1fr;gap:32px;align-items:start}
+  .plansgrid .filters{position:sticky;top:72px}
+  /* plan detail: words left, pictures right */
+  .dsplit{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);column-gap:40px;align-items:start}
+  .dsplit .dtext1{grid-column:1;grid-row:1}
+  .dsplit .dtext2{grid-column:1;grid-row:2}
+  .dsplit .dvis{grid-column:2;grid-row:1/span 2;position:sticky;top:72px}
+  .dvis>.fig:first-child{margin-top:20px}
+  .detail .meta{max-width:70ch}
+  /* player today: scoreboard left, drills right */
+  .tsplit{display:grid;grid-template-columns:340px 1fr;gap:36px;align-items:start}
+  .tsplit .tstat{position:sticky;top:72px}
+  /* two-panel coach screens */
+  .split{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:32px;align-items:start}
+  .split>section>h3:first-child{margin-top:10px}
+  .split .bankh{margin-top:0}
+  .lbgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px;align-items:start}
+  .lbgrid>section>h3{margin:10px 0 4px}
+  .bank{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* ===== Data layer =====
+   Demo mode keeps everything in this browser (localStorage).
+   For the real club version, swap load()/save() and the write helpers
+   for Supabase calls (see lobos-schema.sql). */
+const KEY='lobos-lab-v2';
+const THEMES=['Passing','Receiving','Dribbling & 1v1','Shooting','Possession','Build-up','Crossing','Defending','Transition','Set pieces','Goalkeeping','Agility & coordination'];
+const BANDS=['5-8','9-12','13-17'];
+const bandLabel=b=>b.replace('-','\u2013');
+const bandsText=p=>'Ages '+(p.bands||[]).map(bandLabel).join(', ');
+const BOOTROOM='https://www.thefa.com/bootroom';
+const SOURCES=['The FA','US Soccer','CONMEBOL','Lobos staff'];
+const SRC_LONG={'The FA':'The FA Boot Room','US Soccer':'US Soccer Grassroots (Play-Practice-Play)','CONMEBOL':'CONMEBOL Evoluci\u00f3n youth manual','Lobos staff':'Lobos staff'};
+const srcOf=p=>p.src||'Lobos staff';
+const PLAN_SEED_V=2;
+let S;
+let ui={view:null,q:'',theme:'All',band:'All',src:'All',plan:null,edit:null,team:null,loginRole:'player',loginTeam:null,addingDrill:false};
+
+function uid(){return Math.random().toString(36).slice(2,10)}
+function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function today(){return ymd(new Date())}
+function addDays(s,n){const [y,m,d]=s.split('-').map(Number);return ymd(new Date(y,m-1,d+n))}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function load(){try{return JSON.parse(localStorage.getItem(KEY))}catch(e){return null}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+
+function seed(){
+
+  const drills=[
+    {id:'toe',name:'Toe taps',how:'Tap the top of the ball with alternate soles. Stay light on your toes, eyes up when you can.',target:'3 x 60 seconds'},
+    {id:'rolls',name:'Sole rolls',how:'Roll the ball side to side under your sole, across your body. Switch feet.',target:'50 each foot'},
+    {id:'inout',name:'Inside-outside touches',how:'Push the ball out with the outside of your foot, bring it back with the inside. Small touches.',target:'50 each foot'},
+    {id:'vpull',name:'V pull-backs',how:'Pull the ball back with your sole, then push it forward with the inside of the same foot to make a V.',target:'20 each foot'},
+    {id:'wall',name:'Wall passes',how:'Stand 5 yards from a wall. Control with one foot, pass with the other. Keep it on the ground.',target:'50 each foot'},
+    {id:'touch',name:'First touch off the wall',how:'Pass hard at the wall and take your first touch out of your feet, to the side, ready for the next pass.',target:'40, switch feet halfway'},
+    {id:'jug',name:'Juggling',how:'Keep it up with feet, thighs, and both feet. Count your best run and try to beat it.',target:'10 minutes, beat your record'},
+    {id:'cone',name:'Cone weave dribble',how:'Set 6 cones (or shoes) a yard apart. Weave through using both feet, close control.',target:'5 runs each foot'},
+    {id:'turns',name:'Turns: Cruyff and drag-back',how:'Dribble, turn, explode away. Do each turn with both feet.',target:'10 of each turn per foot'},
+    {id:'strike',name:'Target strikes',how:'Mark a target on a wall. Strike from 10 to 15 yards with laces, both feet.',target:'20 strikes'},
+    {id:'feet',name:'Quick feet (no ball)',how:'Ladder or chalk lines: one foot in each, two feet in each, side shuffle in and out.',target:'5 patterns x 3'}
+  ];
+  const plans=[
+    {title:'Passing through gates into a target player',theme:'Passing',bands:['9-12'],mins:60,
+     objective:'Play forward passes with the right weight, and receive half-turned so the next pass is quicker.',
+     setup:'30x20 yd area with 6 to 8 small cone gates, a ball per pair. A second area 30x15 split into three zones.',
+     warmup:'Pairs pass through as many gates as possible in 60 seconds. Change the rule each round: two-touch, then one-touch, then weaker foot only.',
+     main:'Three zones in a line. Two players in each end zone, one target player in the middle. End players pass into the middle player, who receives on the half-turn and plays to the other end. Add a defender in the middle zone after 5 minutes.',
+     game:'5v5. A goal only counts if the team completed 4 passes in that move.',
+     points:['Check your shoulder before the ball arrives','Open your body so you can see forward','Receive on the back foot, away from pressure','Pass to the far foot of your teammate','Lock the ankle and follow through to the target'],
+     progress:'Easier: no defender, two touches allowed. Harder: one-touch in the middle zone, or a second defender.',
+     dg:[{cap:'Main practice: end player passes into the middle, who turns and plays to the far end.',f:'grid',items:[['z',6,6,28,58],['z',36,6,28,58],['z',66,6,28,58],['A',16,22],['A',16,48],['N',50,35],['D',50,18],['A',84,22],['A',84,48],['p',16,22,50,35],['p',50,35,84,48],['n',57,28,1],['n',50,45,3],['n',30,22,5]]}]},
+
+    {title:'Finishing from lay-offs',theme:'Shooting',bands:['9-12','13-17'],mins:60,
+     objective:'Shoot early and accurately from inside and around the box, with both feet.',
+     setup:'Half pitch, goal with GK, balls at the top of the box, cones marking shooting lines.',
+     warmup:'Pairs strike at small cone goals from 12 yards. Inside of the foot for accuracy first, then laces.',
+     main:'Server at the edge of the box. Shooter passes in, gets a lay-off, and finishes first time or with one setting touch. Shooter becomes server. After a few rounds add a recovering defender from behind.',
+     game:'4v4 plus GKs on a short pitch. Goals from outside a marked zone count double.',
+     points:['Plant foot beside the ball, pointing at the target','Head steady over the ball to keep it low','Aim across the keeper toward the far post','Follow every shot in for rebounds','Decide early: power or placement'],
+     progress:'Easier: stationary ball. Harder: one-touch finishes only, or a defender from the start.',
+     dg:[{cap:'Pass in, lay-off, finish across the keeper. Defender recovers from behind.',f:'goal',items:[['K',50,7],['N',50,33,'S'],['A',38,50],['D',30,62],['p',38,50,50,33],['r',38,50,43,38],['p',50,33,43,38],['p',43,38,55,4],['r',30,62,38,46],['n',36,36,1],['n',61,9,3],['n',62,20,4]]}]},
+
+    {title:'Playing out from the back under pressure',theme:'Build-up',bands:['9-12','13-17'],mins:75,
+     objective:'Keep the ball from the goalkeeper and move it past the first line of pressure.',
+     setup:'Two-thirds of a small-sided pitch. GK, two center backs and one central midfielder (pivot) against 2 to 3 pressers. Two gates on the halfway line.',
+     warmup:'Rondo 4v1, then 5v2, in a 10x10 square. Focus on angles of support.',
+     main:'Every rep starts with the GK. Center backs split wide toward the edges of the box. The pivot shows in a gap between the pressers. The build-up team scores by passing or dribbling through a gate. Pressers score by winning the ball and finishing within 6 seconds.',
+     game:'7v7 using the build-out line where your league uses one. Every restart begins with the GK, with a bonus point for each successful build-up.',
+     points:['The GK is an extra outfield player and always available','Center backs split wide to stretch the press','The pivot moves into a gap between pressers, not behind them','Play forward the moment a line opens','A safe pass back is a good decision, not a failure'],
+     progress:'Easier: 2 pressers. Harder: 3 pressers, or touch limits on center backs.',
+     dg:[{cap:'Center backs split, pivot finds the gap, ball goes forward through a gate.',f:'goal',h:80,items:[['g',26,77,12],['g',74,77,12],['K',50,7],['A',24,24],['A',76,24],['A',50,40],['D',38,30],['D',62,30],['D',50,56],['r',40,16,26,23],['p',50,7,24,24],['p',24,24,50,40],['p',50,40,72,75],['n',58,10,1],['n',16,18,2],['n',58,44,3]]}]},
+
+    {title:'Wide overloads and arriving in the box',theme:'Crossing',bands:['9-12','13-17'],mins:60,
+     objective:'Create 2v1s on the wing and deliver crosses to runners who attack set zones.',
+     setup:'Half pitch with a channel marked on each wing, goal with GK. Mark three zones: near post, far post, and the cut-back spot around the penalty spot.',
+     warmup:'Winger dribbles down the channel and crosses. Then two runners attack near and far post, unopposed.',
+     main:'2v1 in the wide channel (winger plus overlapping fullback against one defender). In the box, attackers must fill near post, far post, and the cut-back zone against one defender.',
+     game:'6v6 with wide channels only attackers may enter. Goals from crosses count double.',
+     points:['Lift your eyes before you cross','Cross early when defenders are running back toward goal','Near post runner goes first, far post arrives late','A cut-back is often better than a high cross at youth level','Attack the space, not the ball'],
+     progress:'Easier: no defender in the box. Harder: equal numbers in the box, or 2v2 in the channel.',
+     dg:[{cap:'Overlap creates the 2v1, then runners attack near post, far post and cut-back zone.',f:'goal',items:[['z',4,30,16,40],['z',42,17,16,8],['K',50,7],['A',16,60],['A',8,66],['D',14,46],['A',44,38],['A',62,40],['D',54,20],['r',8,66,9,36],['p',16,60,9,38],['p',9,34,42,12],['r',44,38,42,12],['r',62,40,60,12],['n',14,28,1],['n',36,12,3],['n',50,29,4]]}]},
+
+    {title:'Pressing as a pair: press, cover, balance',theme:'Defending',bands:['9-12'],mins:60,
+     objective:'First defender pressures with the right angle, second defender covers so the team stays compact.',
+     setup:'20x15 area with two small goals at each end.',
+     warmup:'1v1 shadowing. Attacker dribbles, defender mirrors without tackling, side-on and on their feet.',
+     main:'2v2 to small goals. When the ball goes in, the nearest player presses and the partner covers at an angle behind. Progress to 3v3 with a balance player on the far side.',
+     game:'5v5. Winning the ball and scoring within 5 seconds counts double.',
+     points:['Close down fast, slow down as you arrive','Side-on, knees bent, show the attacker one way','Stay on your feet and tackle when the touch is heavy','Cover at a diagonal, close enough to help','Talk: who presses, who covers'],
+     progress:'Easier: attackers limited to 3 touches. Harder: a bigger area.',
+     dg:[{cap:'Blue defend. Nearest player presses, partner covers on the diagonal.',f:'grid',items:[['g',38,6,10],['g',62,6,10],['g',38,64,10],['g',62,64,10],['D',40,22],['b',42,25],['D',66,28],['A',46,44],['A',60,54],['r',46,44,42,30],['r',60,54,52,42],['n',52,34,1],['n',32,30,2],['n',64,44,4]]}]},
+
+    {title:'Attacking corners',theme:'Set pieces',bands:['9-12','13-17'],mins:45,
+     objective:'Give every player a job at corners so we create chances instead of crowding the six-yard box.',
+     setup:'Penalty box with goal and GK. Cones marking near post, penalty spot, far post, and edge of the box.',
+     warmup:'Takers practice in-swinging and out-swinging delivery to the zones. Everyone else practices timed runs without the ball.',
+     main:'Rehearse three routines, called by a hand signal.\nNear post: one runner attacks the near post, others attack the spot and far post.\nShort: taker plays short, gets it back, and crosses from a better angle.\nEdge: deliver to the top of the box for a first-time strike.\nAdd defenders once the routines are clean.',
+     game:'Small-sided game where every ball out over the end line restarts with a corner.',
+     points:['Start runs late and from deep, then accelerate','Each runner owns a zone','One player on the edge for clearances and second balls','Keep two players back for the counter','The taker signals before the runs start'],
+     progress:'Younger groups: one routine only. Older: add decoy runners and blockers.',
+     dg:[{cap:'Near post routine: three runners, three zones, one on the edge.',f:'goal',items:[['K',50,7],['A',6,5],['b',8,6],['A',40,36],['A',52,38],['A',66,36],['A',50,50],['D',44,12],['D',56,14],['D',50,22],['p',8,6,40,12],['r',40,36,40,13],['r',52,38,50,21],['r',66,36,62,10],['n',32,38,1],['n',72,24,2],['n',58,50,3]]}]},
+
+    {title:'Defending corners',theme:'Set pieces',bands:['9-12','13-17'],mins:45,
+     objective:'Defend corners with clear roles and clear the ball high, wide and far.',
+     setup:'Penalty box with goal and GK, attackers and a corner taker.',
+     warmup:'Clearance practice: server tosses, defenders attack the ball and clear to wide target zones. Use volleys and chest control for ages where heading is restricted by your league.',
+     main:'Hybrid setup: 3 to 4 players mark zones (near post, front of the six-yard box, penalty spot), the rest mark attackers man to man. Run repeated live corners. Defenders clear to wide targets.',
+     game:'After each clearance, the defending team counters to two small goals at halfway.',
+     points:['Be in position before the kick is taken','Attack the ball, do not wait for it','Clear high, wide and far, never across the box','Step out together after the clearance','The GK commands the six-yard box'],
+     progress:'Younger: all zonal. Older: add one player 10 yards out to stop short corners.',
+     dg:[{cap:'Blue defend. Three zonal players, two markers, clearances go wide.',f:'goal',items:[['z',4,32,14,16,'Clear'],['K',50,6],['A',42,9],['A',50,14],['A',50,22],['A',41,28],['A',59,28],['D',38,32],['D',62,32],['D',94,5],['b',93,7],['p',93,7,52,13],['p',42,9,12,38],['n',32,8,1],['n',22,26,3],['n',60,4,5]]}]},
+
+    {title:'Goal kicks: ours and theirs',theme:'Set pieces',bands:['9-12','13-17'],mins:60,
+     objective:'Have a plan for our goal kicks and a plan to press theirs.',
+     setup:'Two-thirds of the pitch, 7v7 or 9v9. Mark the build-out line if your league uses one.',
+     warmup:'GK distribution: short passes to split center backs, then driven passes to a fullback.',
+     main:'Our goal kicks, three options.\nShort: center backs split to the edges of the box, pivot drops between them.\nSwitch: play short to one side, draw the press, switch through the pivot.\nLong: if the press is high and tight, kick to a target forward with midfielders ready for the second ball.\n\nTheir goal kicks: forwards block the passes into their center backs, far side stays compact. Trigger: when the GK passes short, the nearest forward presses and forces play to the touchline.',
+     game:'Game where every restart is a goal kick, alternating teams.',
+     points:['Agree the option before the kick, with a call','Center backs wide, pivot between, fullbacks high','When pressing theirs, curve your run to cut off one side','Win the second ball after long kicks','At build-out line ages, use the time while opponents retreat'],
+     progress:'Easier: walk through shapes unopposed. Harder: free pressing with no build-out line.',
+     dg:[{cap:'Our goal kick: short to a split center back, then switch through the pivot.',f:'goal',h:80,items:[['K',50,7],['b',50,10],['A',24,26],['A',76,26],['A',50,32],['A',10,50],['A',90,50],['A',50,70],['D',36,22],['D',30,40],['p',50,7,24,26],['p',24,26,50,32],['p',50,32,90,50],['n',58,11,1],['n',84,22,2]]},
+         {cap:'Their goal kick: our forwards wait, then press on the short pass and curve to cut off the inside.',f:'goal',h:80,items:[['K',50,7],['D',26,24],['D',74,24],['D',50,34],['D',10,48],['A',40,40],['A',62,40],['A',50,52],['p',50,7,26,24],['r',40,40,30,27],['r',62,40,54,34],['r',50,52,50,40],['n',22,36,3]]}]},
+
+    {title:'Throw-ins that keep the ball',theme:'Set pieces',bands:['5-8','9-12'],mins:30,
+     objective:'Legal throws, quick restarts, and two simple routines that keep possession.',
+     setup:'Touchline with a 20x15 area beside it.',
+     warmup:'Technique in pairs: both feet on the ground behind the line, ball from behind the head with both hands. Throw to feet, then thigh, then chest.',
+     main:'Give and go: throw to a teammate who passes straight back to the thrower.\nDown the line: receiver checks toward the thrower, then spins into space behind.\nAdd one, then two defenders.',
+     game:'5v5 where every restart on the touchline must be taken within 5 seconds.',
+     points:['Throw quickly before defenders settle','Throw to feet or into space','Receivers move: check in, then go','The thrower steps on and becomes an option','Long throws only when they create a chance'],
+     progress:'Older players: add a long-throw routine into the box.',
+     dg:[{cap:'Give and go back to the thrower, or a run down the line.',f:'grid',items:[['l',4,4,4,66,1.2],['t',12,64,'Touchline','start'],['A',5,36],['A',18,32],['A',24,20],['D',26,36],['D',30,16],['p',5,36,16,32],['p',18,32,11,46],['r',5,36,10,46],['r',24,20,10,8],['n',10,24,1],['n',32,26,3],['n',18,48,4]]}]},
+
+    {title:'Free kicks: attacking and the wall',theme:'Set pieces',bands:['9-12','13-17'],mins:45,
+     objective:'Create chances from direct and indirect free kicks, and defend them with an organized wall.',
+     setup:'Area around the penalty box, goal and GK, a wall of cones, mannequins or players.',
+     warmup:'Strike over and around a cone wall from 18 to 20 yards.',
+     main:'Direct: curl over or around the wall to the near or far corner.\nIndirect: one player rolls the ball sideways, the next strikes. Then add a dummy runner.\nDefending: GK sets the wall (2 to 4 players) to cover the near post, one player blocks the short option. The wall stands 10 yards from the ball.',
+     game:'Every foul in the attacking half becomes a live free kick.',
+     points:['Decide direct or indirect before placing the ball','The taker picks one corner and commits','Runners follow the shot for rebounds','The wall stays shoulder to shoulder and does not turn','The GK sees the ball and covers the far post'],
+     progress:'Younger players: focus on quick restarts instead of walls.',
+     dg:[{cap:'Direct free kick: commit to one corner, runners follow in.',f:'goal',items:[['K',50,7],['D',44,30],['D',48,30],['D',52,30],['b',50,43],['A',47,46],['A',38,50],['A',66,42],['p',50,43,58,5],['r',38,50,47,41],['r',66,42,59,14],['t',60,37,'10 yd'],['n',64,22,2],['n',72,32,3],['n',36,30,4]]}]},
+
+    {title:'Quick feet, balance and reaction',theme:'Agility & coordination',bands:['5-8','9-12'],mins:45,
+     objective:'Build physical literacy: agility, balance, coordination and reaction speed, with and without the ball.',
+     setup:'Agility ladder or chalk lines, 10 cones, bibs in three colors, a ball each.',
+     warmup:'Tag where tagged players freeze balancing on one foot. Then skipping, side shuffles, backward jog.',
+     main:'Station 1, ladder: one foot in each, two feet in each, lateral in and out.\nStation 2, mirror: in pairs, one leads and the other copies.\nStation 3, reaction: coach calls a color and players sprint to that cone.\nRotate every 5 minutes.',
+     game:'Dribble relay. Coach calls left or right, players turn and change direction.',
+     points:['Light on the balls of the feet','Arms drive the movement','Low center of gravity when changing direction','Quality first, then speed','Short rests keep every rep sharp'],
+     progress:'Easier: walk the patterns first. Harder: a ball at every ladder exit.',
+     dg:[{cap:'Three stations: ladder, mirror pairs, reaction sprints to called cones.',f:'grid',items:[['t',22,9,'Ladder'],['z',8,12,5,7],['z',13,12,5,7],['z',18,12,5,7],['z',23,12,5,7],['z',28,12,5,7],['z',33,12,5,7],['A',5,15],['t',70,9,'Mirror'],['A',62,20],['A',78,20],['r',62,20,54,20],['r',78,20,86,20],['t',50,38,'Reaction'],['c',26,58],['c',50,63],['c',74,58],['A',50,46],['r',50,46,28,57],['n',20,26,1],['n',70,30,2],['n',40,54,3]]}]},
+
+    {title:'Sharks and minnows',theme:'Dribbling & 1v1',bands:['5-8'],mins:45,
+     objective:'Dribble with close control and the head up, changing direction to escape pressure.',
+     setup:'25x20 yd area with a safe zone at each end. Every minnow has a ball, 1 to 2 sharks without.',
+     warmup:'Ball each. Follow the leader: coach dribbles, players copy. Then touch the ball with the sole, inside and outside on command.',
+     main:'Minnows dribble from one safe zone to the other. Sharks try to kick their balls out of the area. A minnow who loses the ball becomes seaweed: they stand still and can tag dribblers who pass close. Last minnow left becomes the next shark.',
+     game:'3v3 to small goals, no goalkeepers. Lots of goals, lots of touches.',
+     points:['Small touches keep the ball close','Look up to find the space','Change direction away from the shark','Put your body between the shark and the ball'],
+     progress:'Easier: sharks walk. Harder: more sharks, or minnows use their weaker foot.',
+     dg:[{cap:'Minnows dribble across, sharks hunt in the middle.',f:'grid',items:[['z',4,4,92,9,'Safe'],['z',4,57,92,9,'Safe'],['A',18,61],['A',38,61],['A',62,61],['A',82,61],['D',40,34],['D',66,28],['d',18,61,24,30],['d',38,61,32,42],['d',62,61,74,36],['d',82,61,86,20],['n',12,44,1],['n',80,46,3]]}]},
+
+    {title:'Traffic lights',theme:'Dribbling & 1v1',bands:['5-8'],mins:30,
+     objective:'Control speed while dribbling: go fast, slow down, and stop the ball on command.',
+     setup:'20x20 area, ball each.',
+     warmup:'Players dribble anywhere. Every time the coach claps, find a new cone and touch it with the ball.',
+     main:'Coach calls colors. Green: dribble fast. Yellow: slow, small touches. Red: stop the ball under your sole. Add purple: turn and go the other way. Hold up colored cones so players react to what they see, not just what they hear.',
+     game:'4v4 to small goals. When the coach calls red, everyone freezes with a foot on the ball, then play on.',
+     points:['Eyes up to see the coach and the space','Small touches when slowing down','Sole on top of the ball to stop','Push the ball out in front to go fast'],
+     progress:'Easier: walk with the ball. Harder: weaker foot only, or two calls in a row.',
+     dg:[{cap:'Everyone dribbles freely and reacts to the coach’s color.',f:'grid',items:[['c',10,10],['c',90,10],['c',10,60],['c',90,60],['N',50,35,'C'],['A',20,16],['A',78,16],['A',22,54],['A',78,54],['A',50,60],['d',20,16,36,24],['d',78,16,64,26],['d',22,54,36,46],['d',78,54,66,44],['n',42,14,1],['n',86,38,3]]}]},
+
+    {title:'Pirate treasure passing',theme:'Passing',bands:['5-8'],mins:45,
+     objective:'Pass with the inside of the foot and stop the ball, in pairs.',
+     setup:'20x20 area with 8 to 10 small cone gates, one ball per pair.',
+     warmup:'Each player dribbles through as many gates as possible in 45 seconds. Count them out loud.',
+     main:'Pairs pass through a gate to each other. Every pass through a gate wins a piece of treasure (a disc from the coach’s chest). After 2 minutes, count the treasure. Next round: use a different gate every time.',
+     game:'3v3. A goal is dribbling the ball through any gate and stopping it.',
+     points:['Inside of the foot, toe up, ankle locked','Standing foot beside the ball, pointing at your partner','Call your partner’s name before passing','Stop it with your sole, then find the next gate'],
+     progress:'Easier: big gates. Harder: smaller gates, or one-touch passes.',
+     dg:[{cap:'Pairs pass through gates to collect treasure.',f:'grid',items:[['c',30,15],['c',30,25],['c',67,13],['c',67,23],['c',48,42],['c',57,42],['c',24,50],['c',24,58],['c',76,48],['c',76,56],['A',16,20],['A',44,20],['A',58,18],['A',80,18],['A',52,30],['A',52,56],['p',16,20,44,20],['p',58,18,80,18],['p',52,30,52,56],['n',10,30,1],['n',40,10,3]]}]},
+
+    {title:'Knock down the cones',theme:'Shooting',bands:['5-8'],mins:30,
+     objective:'Strike the ball cleanly at a target with the laces and the inside of the foot.',
+     setup:'20x20 area. A line of tall cones across the middle. Two teams, one each side, plenty of balls.',
+     warmup:'Pass a ball at a partner’s cone from 5 yards. Step back after each hit.',
+     main:'Both teams shoot from behind their line at the cones in the middle. Knocking a cone down scores a point. Coach resets the cones each round. Players can only shoot from behind their line, so they have to strike it.',
+     game:'3v3 with small goals and no GK. Goals from behind a shooting line count double.',
+     points:['Look at the target, then at the ball','Standing foot beside the ball','Strike through the middle of the ball','Land on your kicking foot after the shot'],
+     progress:'Easier: move the line closer. Harder: weaker foot round, or the coach rolls a moving target across.',
+     dg:[{cap:'Two teams shoot from behind their lines at cones in the middle.',f:'grid',items:[['l',4,18,96,18,.4],['l',4,52,96,52,.4],['c',20,35],['c',35,35],['c',50,35],['c',65,35],['c',80,35],['A',20,58],['A',46,60],['A',72,58],['D',30,11],['D',62,10],['p',20,58,20,38],['p',46,60,49,38],['p',30,11,34,32],['n',60,62,1],['n',30,62,2]]}]},
+
+    {title:'Animal moves',theme:'Agility & coordination',bands:['5-8'],mins:30,
+     objective:'Develop balance, coordination and body control through movement games.',
+     setup:'20x20 area split into four lanes. A ball each for the final game.',
+     warmup:'Jog around the area. On the call, move like the animal: bear crawl, frog jump, crab walk, flamingo balance on one leg.',
+     main:'Four lanes, one animal per lane. Players travel down a lane as that animal, jog back, then move to the next lane. Then add a ball: bear crawl pushing the ball with the hands, frog jump over the ball, flamingo with the sole on the ball.',
+     game:'Animal tag. Taggers chase dribblers. A tagged player does 5 frog jumps, then joins back in.',
+     points:['Strong middle: tummy tight on all fours','Land softly on bent knees','Arms out to help with balance','Quality first, then speed'],
+     progress:'Easier: shorter lanes. Harder: races in pairs, or switch animal on a whistle.',
+     dg:[{cap:'Four lanes, one animal each. Travel down, jog back, rotate.',f:'grid',items:[['z',6,6,20,58,'Bear'],['z',28,6,20,58,'Frog'],['z',50,6,20,58,'Crab'],['z',72,6,20,58,'Flamingo'],['A',16,60],['A',38,60],['A',60,60],['A',82,60],['r',16,60,16,16],['r',38,60,38,16],['r',60,60,60,16],['r',82,60,82,16],['n',21,36,1],['n',43,36,2],['n',87,36,3]]}]},
+
+    {title:'1v1 to the end line',theme:'Dribbling & 1v1',bands:['5-8','9-12'],mins:45,
+     objective:'Beat a defender 1v1 with a change of speed or direction.',
+     setup:'10x15 yd channels side by side, an end line for each player to defend, a server at the side.',
+     warmup:'Ball each. Practice moves: step-over, drag-back, push and go. Show it slow, then fast.',
+     main:'Server plays the ball to the attacker. The defender steps in from the far end. The attacker scores by stopping the ball on the defender’s end line. Swap roles every turn.',
+     game:'2v2 in a bigger channel, end-line scoring.',
+     points:['Attack the defender at speed','Use your move when the defender is close, not far away','Push the ball past them and accelerate','Keep the ball on your far foot, away from the defender'],
+     progress:'Easier: defender starts further back. Harder: defender starts closer, or weaker foot only.',
+     dg:[{cap:'Attacker receives, beats the defender, stops the ball on the end line.',f:'grid',items:[['z',30,6,40,58],['l',30,8,70,8,1.2],['t',50,14,'End line'],['D',50,22],['N',80,60,'S'],['A',50,58],['p',80,60,50,58],['r',50,22,48,34],['d',50,58,38,36],['d',38,36,56,10],['n',60,48,1],['n',64,22,3]]}]},
+
+    {title:'Receiving on the half-turn in a diamond',theme:'Receiving',bands:['9-12'],mins:45,
+     objective:'Receive across the body so the first touch moves the ball forward.',
+     setup:'Diamond of cones 15 yards apart, a player on each cone plus one extra, two balls.',
+     warmup:'Pairs: pass and receive on the back foot, opening the body toward where the ball goes next.',
+     main:'The ball travels round the diamond. Each player moves away from the cone then back to show, receives on the half-turn with the back foot, and passes on. Reverse direction every 2 minutes. Add a passive defender in the middle, then make them active.',
+     game:'4v4 with 2 target players. A point when a target player receives and turns.',
+     points:['Check your shoulder before the pass arrives','Move away, then show for the ball','Open your body, receive on the back foot','First touch forward, out of your feet'],
+     progress:'Easier: two touches. Harder: one-touch on alternate passes, or a live defender.',
+     dg:[{cap:'Ball circulates the diamond. Each receiver opens up and plays on.',f:'grid',items:[['c',50,8],['c',82,35],['c',50,62],['c',18,35],['A',50,62],['A',18,35],['A',50,8],['A',82,35],['D',50,35],['p',50,62,18,35],['p',18,35,50,8],['p',50,8,82,35],['n',10,26,1],['n',28,28,3]]}]},
+
+    {title:'Rondo: 4v2 and 5v2',theme:'Possession',bands:['9-12','13-17'],mins:30,
+     objective:'Keep the ball under pressure with good angles and quick decisions.',
+     setup:'12x12 yd square, 4 or 5 players outside, 2 defenders inside.',
+     warmup:'4v1 with two touches. Defender rotates every minute.',
+     main:'4 on the outside, 2 in the middle. Ten passes is a point. A pass that splits the two defenders counts double. If a defender wins it, the player who lost it swaps in. Progress to 5v2 with one player allowed inside.',
+     game:'6v6 in a bigger area, same scoring: ten passes or a split pass earns a point.',
+     points:['Make an angle on both sides of the ball','Play away from where the pressure comes from','Split the two defenders when the gap opens','Shape to pass one way, play the other'],
+     progress:'Easier: 5v2, unlimited touches. Harder: one-touch, smaller square.',
+     dg:[{cap:'Four outside, two inside. The split pass between defenders counts double.',f:'grid',items:[['z',22,8,56,54],['A',50,8],['A',78,35],['A',50,62],['A',22,35],['D',43,33],['D',57,37],['p',22,35,50,8],['p',50,8,50,62],['n',30,20,1],['n',56,52,3]]}]},
+
+    {title:'Goalkeeping basics: set, catch, dive',theme:'Goalkeeping',bands:['9-12','13-17'],mins:45,
+     objective:'Set the body before a shot, catch cleanly, and dive forward to save low shots.',
+     setup:'Goal with a GK, two servers with balls at 12 to 16 yards, cones marking angles.',
+     warmup:'Handling: W catch at chest height, scoop low balls, catch above the head. Then shuffle side to side between cones.',
+     main:'Servers alternate shots from two angles. The GK resets to set position between shots, steps across to the line of the ball, and saves. Add low shots to the corners for diving, always diving forward rather than back.',
+     game:'Small-sided game where GKs earn a point for every catch (not a parry).',
+     points:['Set as the shot is struck: feet apart, weight forward','Hands in a W behind the ball','Get your body behind the ball','Dive forward and across, not back','Back on your feet fast'],
+     progress:'Easier: underarm serves. Harder: deflections, or a second shot straight away.',
+     dg:[{cap:'Two servers alternate. GK sets, moves across, saves.',f:'goal',items:[['c',40,16],['c',60,16],['K',50,8],['A',34,30],['A',66,30],['p',34,30,45,6],['p',66,30,57,6],['r',50,10,40,10],['n',61,15,1],['n',34,8,4]]}]},
+
+    {title:'Counter-press: win it back in five seconds',theme:'Transition',bands:['13-17'],mins:60,
+     objective:'React the moment we lose the ball and win it back before the opponent can escape.',
+     setup:'35x30 yd area, 5v5 plus a neutral at each end.',
+     warmup:'Rondo 5v2. When the defenders win it, they must make 3 passes while the others try to win it straight back.',
+     main:'5v5 possession. If a team loses the ball and wins it back within 5 seconds, they score 2 points. If the team that won it escapes to an end neutral, they score 1. The coach counts the 5 seconds out loud.',
+     game:'7v7 to goals. Goals scored within 10 seconds of winning the ball back count double.',
+     points:['React immediately, no switching off','The nearest player presses the ball','Others close the nearest passing lanes','If it is not won in five seconds, drop into shape'],
+     progress:'Easier: count slowly, bigger area. Harder: smaller area, or a 3-second window.',
+     dg:[{cap:'Blue just lost it. Nearest player presses, others shut the escape passes.',f:'grid',items:[['N',50,6],['N',50,64],['D',52,32],['b',53,35],['D',28,22],['D',76,22],['D',36,52],['A',40,44],['A',66,42],['A',50,20],['r',40,44,49,35],['r',66,42,58,33],['r',50,20,46,28],['n',42,30,2],['n',72,32,3]]}]},
+
+    {title:'Possession 4v4 plus 3',theme:'Possession',bands:['13-17'],mins:60,
+     objective:'Keep the ball using width, depth and the free player to play through the opponent.',
+     setup:'30x25 yd area. Two teams of 4 inside, 3 neutrals: one at each end and one in the middle.',
+     warmup:'Passing patterns in groups of 4 with one-touch combinations and movement off the ball.',
+     main:'The team in possession uses the neutrals to make 7v4. A point for playing from one end neutral to the other. Neutrals are limited to two touches.',
+     game:'8v8 on a bigger pitch. Teams must play through midfield to a striker before shooting.',
+     points:['Spread out: create width and depth','Find the free player between the lines','Third-man pass when the direct pass is blocked','Neutrals play forward when they can'],
+     progress:'Easier: unlimited touches for neutrals. Harder: neutrals one-touch, or only 2 neutrals.',
+     dg:[{cap:'End neutral to wide player, through the middle neutral, to the far end.',f:'grid',items:[['N',50,6],['N',50,64],['N',50,35],['A',18,20],['A',82,20],['A',18,50],['A',82,50],['D',38,24],['D',62,24],['D',38,46],['D',62,46],['p',50,64,18,50],['p',18,50,50,35],['p',50,35,50,6],['n',10,35,1],['n',58,38,2]]}]},
+
+    {title:'Third-man combinations',theme:'Passing',bands:['13-17'],mins:45,
+     objective:'Use a lay-off to release a runner who was never marked.',
+     setup:'Half pitch with goal and GK, three attackers and one or two defenders.',
+     warmup:'Pattern in threes, unopposed: pass in, lay-off, pass beyond the runner. Rotate positions.',
+     main:'Player A plays into B, who has their back to goal. B lays off first time to C. C plays forward into A, who has run beyond. Add a defender on B, then a second defender tracking A.',
+     game:'6v6 to goals. A goal from a third-man pass counts double.',
+     points:['Know where the third player is before you receive','Lay-off with one touch','Time the run with the lay-off, not the first pass','Play the pass into space ahead of the runner'],
+     progress:'Easier: no defenders. Harder: two defenders, or a time limit.',
+     dg:[{cap:'A into B, B lays off to C, C releases A running beyond.',f:'goal',items:[['K',50,7],['A',30,62,'A'],['A',50,34,'B'],['A',66,52,'C'],['D',50,27],['p',30,62,50,34],['p',50,34,66,52],['r',30,62,36,16],['p',66,52,38,18],['n',58,40,2],['n',24,42,3],['n',52,18,4]]}]},
+
+    {title:'Switching play to the weak side',theme:'Build-up',bands:['13-17'],mins:60,
+     objective:'Draw the opponent to one side, then switch the ball quickly to the free side.',
+     setup:'50x40 yd area with a gate in each top corner. 6 attackers against 4 defenders.',
+     warmup:'Long passing in pairs over 25 to 35 yards, driven and lofted.',
+     main:'The team in possession builds on one side to attract defenders, then switches through the pivot or with a long diagonal. Points for dribbling through a wide gate. Defenders score by winning it and passing into a small goal at the bottom.',
+     game:'8v8 with wide zones. A goal after a switch of play counts double.',
+     points:['Draw opponents to one side first','Open your body to see the far side','Move it quickly: two touches max on the switch','The far-side winger holds the width until the ball moves'],
+     progress:'Easier: fewer defenders. Harder: equal numbers, or one-touch switches.',
+     dg:[{cap:'Overload the left, switch through the pivot, attack the free gate.',f:'grid',items:[['g',16,6,12],['g',84,6,12],['g',50,64,10],['A',16,40],['A',30,56],['A',50,50],['A',86,32],['D',26,32],['D',30,44],['D',40,36],['D',60,30],['p',16,40,50,50],['p',50,50,86,32],['d',86,32,84,9],['n',34,22,1],['n',92,46,4]]}]},
+
+    {title:'Mid-block: defending as a unit',theme:'Defending',bands:['13-17'],mins:60,
+     objective:'Stay compact as a team, shift with the ball and protect the middle.',
+     setup:'Two-thirds of a pitch. 7 defenders (back four plus three midfielders) against 8 attackers.',
+     warmup:'Shadow shifting: coach moves a ball around, defenders shift as a unit without opponents.',
+     main:'Attackers build from halfway and try to score. Defenders hold a block: back line and midfield line no more than 10 to 15 yards apart, shifting together toward the ball side. When the ball goes backward, the block steps up together.',
+     game:'9v9 or 11v11. The defending team scores a point for each regain in the middle third followed by a shot.',
+     points:['Shift together toward the ball','Keep 10 to 15 yards between the lines','Protect the middle, let them have the outside','Step up together on every backward pass'],
+     progress:'Easier: fewer attackers. Harder: attackers add a free player between the lines.',
+     dg:[{cap:'Blue block shifts toward the ball and keeps the lines close.',f:'grid',items:[['z',22,36,60,24],['A',28,54],['A',44,56],['A',60,56],['A',76,54],['A',38,42],['A',54,42],['A',70,42],['D',88,30],['b',86,33],['D',60,20],['D',36,18],['r',54,42,62,40],['r',38,42,46,40],['n',90,46,1],['n',14,48,2],['n',48,30,3]]}]},
+
+    {title:'Pressing triggers from the front',theme:'Defending',bands:['13-17'],mins:60,
+     objective:'Press together on agreed triggers instead of chasing every ball.',
+     setup:'Two-thirds of the pitch. Opponents build from their GK with a back four and a pivot. Our front three and midfield press.',
+     warmup:'Shadow pressing: the coach calls a trigger and the front three sprint into position.',
+     main:'Opponents build from the GK. Our team waits in shape until a trigger: a pass to a fullback near the touchline, a backward pass, a bad touch, or a player receiving facing their own goal. On the trigger, the nearest player presses and the others close the inside passes.',
+     game:'9v9 or 11v11. Points for winning the ball in the attacking third.',
+     points:['Agree the triggers before the session','Press on the trigger, together','Curve your run to block the inside pass','Use the touchline as an extra defender'],
+     progress:'Easier: one trigger only. Harder: opponents add a free player.',
+     dg:[{cap:'Trigger: pass to their fullback. Winger presses, others close inside.',f:'goal',items:[['K',50,7],['D',30,20],['D',70,20],['D',50,32],['D',10,40],['A',26,50],['A',42,30],['A',44,50],['p',30,20,11,38],['r',26,50,15,43],['r',42,30,32,25],['r',44,50,32,40],['n',34,52,3],['n',6,54,4]]}]},
+
+    {title:'Finishing after a one-two',theme:'Shooting',bands:['13-17'],mins:60,
+     objective:'Combine at the edge of the box and finish before the defense recovers.',
+     setup:'Half pitch, goal and GK, a wall player at the edge of the box, attackers in a line 30 yards out.',
+     warmup:'One-two passing in pairs on the move, then striking at goal from the return.',
+     main:'The attacker passes into the wall player and runs past the defender. The wall player returns the ball into the run. The attacker finishes first time or with one touch. Progress to an overlap and cut-back from the side.',
+     game:'5v5 plus GKs. A goal after a one-two counts double.',
+     points:['Pass firmly into the wall player','Run past the defender on the blind side','Finish early, before the keeper sets','Hit the target: low and across the keeper'],
+     progress:'Easier: passive defender. Harder: active defender and a recovering midfielder.',
+     dg:[{cap:'Pass into the wall player, spin past the defender, finish first time.',f:'goal',items:[['K',50,7],['A',36,58],['A',58,34],['D',46,40],['p',36,58,58,34],['r',36,58,44,25],['p',58,34,46,26],['p',44,22,56,4],['n',30,42,2],['n',36,18,3]]}]},
+
+    {title:'Counter-attack 3v2',theme:'Transition',bands:['9-12','13-17'],mins:45,
+     objective:'Attack quickly after winning the ball, using width to outnumber recovering defenders.',
+     setup:'Half pitch with goal and GK. Three attackers start at halfway, two defenders start level with them.',
+     warmup:'Running with the ball at speed in pairs, then 2v1 to goal.',
+     main:'The coach plays the ball to an attacker. Three attackers go at goal while two defenders recover. The attack must finish within 8 seconds. Rotate roles.',
+     game:'6v6. A team that wins the ball in its own half and scores within 10 seconds earns double.',
+     points:['Run at speed with your head up','The ball carrier attacks a defender to commit them','Outside runners stay wide to stretch the defense','Shoot early, before the defense recovers'],
+     progress:'Easier: 3v1. Harder: 4v3, or 6 seconds to finish.',
+     dg:[{cap:'Middle runner drives at goal, wide runners stretch the two recovering defenders.',f:'goal',items:[['K',50,7],['A',28,62],['A',50,64],['A',72,62],['D',42,48],['D',60,48],['d',50,64,50,38],['r',28,62,26,28],['r',72,62,74,28],['r',42,48,44,32],['r',60,48,57,32],['n',58,56,2],['n',82,40,3]]}]},
+
+    /* ===== Federation-sourced sessions (written in our own words, linked to the original) ===== */
+    {title:'Set and shoot',theme:'Shooting',bands:['9-12','13-17'],mins:60,src:'The FA',ref:'Set and shoot',link:'https://www.thefa.com/bootroom/resources/coaching/set-and-shoot',
+     objective:'Combine with a setter to get a shot away, and choose when to be creative and when to play a quick combination.',
+     setup:'Pitch with a halfway line and a goal at each end. 12 players: 4v4 including goalkeepers, plus four setters. Two setters stand on each goal line, one either side of the goal.',
+     warmup:'Threes with one ball. Pass into a partner, take a set-back and strike first time at a cone goal. Rotate after every shot.',
+     main:'Teams try to play the ball to a setter at the end they attack. The setter must return it to the team that fed them, but to any player on that team, who then tries to score. If defenders win it, they attack the other way using the setters at that end. Saves and balls behind the goal go to the defending keeper, who restarts for their team.',
+     game:'5v5 to goals. A goal scored first time from a set-back counts double.',
+     points:['Move to an angle where the setter can see you','Decide before the ball arrives: first time or one setting touch','Go 1v1 when it is on, combine when it is not','Strike low and across the keeper','React instantly when the ball turns over'],
+     progress:'Easier: setters can pass to anyone and defenders are passive for the first round. Harder: add an untouchable wide player on each touchline who can bounce passes and feed the setters, or play two-touch.',
+     dg:[{cap:'Pass to a setter, run onto the set-back, finish.',f:'grid',items:[['g',50,4,14],['g',50,66,14],['l',4,35,96,35,.4],['K',50,7],['K',50,63],['N',34,5],['N',66,5],['N',34,65],['N',66,65],['A',62,28],['A',30,40],['A',50,48],['D',44,24],['D',56,40],['D',70,18],['p',62,28,66,8],['r',30,40,42,18],['p',66,5,42,18],['p',42,18,48,4],['n',76,26,1],['n',34,20,2],['n',54,13,4]]}]},
+
+    {title:'3v3 one-way attack',theme:'Receiving',bands:['9-12','13-17'],mins:45,src:'The FA',ref:'3v3 one-way attack',link:'https://www.thefa.com/bootroom/resources/coaching/3v3-one-way-attack',
+     objective:'Receive facing forward and combine with teammates in tight spaces.',
+     setup:'Futsal court or small pitch with a goal and keeper at each end. Two teams of six split into two 3v3 games, one in each half.',
+     warmup:'Triangles with one ball. Receive across your body and play out the other side. Add a passive defender after 3 minutes.',
+     main:'In each half the attacking three start on the halfway line and try to beat three defenders plus the keeper. A goal is a point, and they restart from halfway. If the defenders win the ball they cannot shoot: they must stop it on the halfway line, and then the roles swap. Play 4-minute rounds and add the scores from both halves together.',
+     game:'One game, one ball: the three defenders must win it and play it into their three attackers in the other half.',
+     points:['Know where your defender is before the ball arrives','Receive on the half-turn so you can face forward','Use quick one-twos when space is tight','If you cannot turn, set it back and spin off','Defenders: after a win, get the ball to halfway fast'],
+     progress:'Easier: 4v3 in one half. Harder: 2v3 in the other half, or one-touch combinations only.',
+     dg:[{cap:'Attackers start on halfway, receive facing forward and combine to score.',f:'grid',items:[['g',50,4,14],['l',4,35,96,35,.6],['K',50,7],['A',28,33],['A',62,24],['A',44,16],['D',38,24],['D',58,14],['D',72,30],['b',29,31],['p',28,33,62,24],['p',62,24,44,16],['r',28,33,40,10],['p',44,16,52,4],['t',50,56,'Second 3v3 in this half'],['n',68,20,2],['n',50,22,3]]}]},
+
+    {title:'2v2 target',theme:'Defending',bands:['9-12','13-17'],mins:45,src:'The FA',ref:'2v2 target',link:'https://www.thefa.com/bootroom/resources/coaching/2v2-marking-the-target',
+     objective:'Mark an attacker and work with a partner to shut down space and passing options.',
+     setup:'Small area, about 20x15 yd. Six players in three pairs. One pair are target players, one on each end line, free to move along it. The other two pairs play 2v2 in the middle.',
+     warmup:'Shadow 1v1: an attacker moves side to side along a line and the defender mirrors, staying goal-side.',
+     main:'The pair on the ball tries to get it from one target player to the other by beating the opponents. The defending pair marks the target and presses to win it back. Play 3-minute rounds, then rotate so the targets play in the middle.',
+     game:'3v3 or 4v4 to end zones: score by receiving in the end zone under control.',
+     points:['Stand between your attacker and the target','Scan: ball, your player, the target','One presses the ball, the partner covers the pass into the target','Talk: who goes and who covers','Intercept slow or telegraphed passes'],
+     progress:'Easier: target players stay still. Harder: two targets at each end, or the player who passes to a target swaps in as the new target.',
+     dg:[{cap:'One defender presses the ball while the partner screens the pass to the target.',f:'grid',h:64,items:[['l',4,6,96,6,.8],['l',4,58,96,58,.8],['N',50,6],['N',50,58],['A',34,44],['A',64,40],['D',40,36],['D',56,24],['b',35,42],['d',34,44,30,30],['r',40,36,36,40],['p',34,44,50,9],['n',47,16,1],['n',28,40,3],['n',66,24,4]]}]},
+
+    {title:'1v1 moving with the ball',theme:'Dribbling & 1v1',bands:['5-8','9-12'],mins:30,src:'The FA',ref:'1v1 moving with the ball',link:'https://www.thefa.com/bootroom/resources/coaching/1v1-moving-with-the-ball',
+     objective:'Stay on the ball in tight spaces, scan, and use deception to beat an opponent.',
+     setup:'Small pitch or futsal court with a goal at each end and the middle third marked. One player from each team goes in goal. Everyone else picks an opponent from the other team, one ball per pair, in the middle third.',
+     warmup:'Everyone dribbles in the middle third. On the call, stop the ball with your sole and find new space with your head up.',
+     main:'On the whistle, every ball carrier attacks a goal against their partner. After a goal or a save the keeper gives the ball to the player who was defending, and they attack the other goal. If the ball goes out, dribble it back in. Play 2 minutes, add up team scores, then find a new opponent.',
+     game:'Partners join up and play the same game 2v2 or 3v3.',
+     points:['Head up to see space and your opponent','Change speed and direction to get past','Small touches in traffic, bigger touches in space','Use your body to shield when pressed','If the keeper is busy, finish calmly'],
+     progress:'Easier: the defender starts 3 yards away. Harder: when someone scores, both players join a teammate to make a 2v2.',
+     dg:[{cap:'All 1v1s start at once in the middle third, then break toward a goal.',f:'grid',items:[['g',50,4,14],['g',50,66,14],['K',50,7],['K',50,63],['z',6,24,88,22,'Middle third'],['A',26,34],['D',32,40],['A',72,38],['D',66,32],['d',26,34,40,12],['d',72,38,60,58],['n',18,42,1],['n',44,20,2],['n',82,44,4]]}]},
+
+    {title:'Futsal spin to win',theme:'Dribbling & 1v1',bands:['5-8','9-12'],mins:30,src:'The FA',ref:'Mastering the ball: futsal spin to win',link:'https://www.thefa.com/bootroom/resources/coaching/mastering-the-ball-futsal-spin-to-win',
+     objective:'Get lots of touches, keep the ball under the sole, and win 1v1 duels.',
+     setup:'Pairs with one ball in a small square. Four discs: one on each side (1 point) and one behind each player (3 points).',
+     warmup:'Pairs pass with the sole. After each pass both players move one position around the square. After a full lap, face up and start the duel.',
+     main:'The player on the ball scores 1 point by stopping it on a side disc, or 3 points by beating the opponent and stopping it on the disc behind them. If the defender wins it cleanly, they attack straight away.',
+     game:'2v2 on a small court with the same discs as targets.',
+     points:['Use the sole to keep the ball close','Hide the ball with your body','Fake one way, go the other','Look for the 3-point disc first','Defend low and patient, do not dive in'],
+     progress:'Easier: the defender works at half speed. Harder: the attacker must stay on the ball for a set time before scoring, and try to beat that time.',
+     dg:[{cap:'Stop the ball on a side disc for 1, or beat your opponent to the far disc for 3.',f:'grid',h:60,items:[['c',50,9],['c',50,51],['c',10,30],['c',90,30],['t',50,14,'3 pts'],['t',16,36,'1',],['t',84,36,'1'],['A',50,40],['D',50,24],['b',50,43],['d',52,38,70,30],['d',70,30,86,30],['d',46,38,36,24],['d',36,24,48,11],['n',60,42,1],['n',28,26,3]]}]},
+
+    {title:'Stay on the ball',theme:'Dribbling & 1v1',bands:['5-8','9-12'],mins:30,src:'The FA',ref:'Stay on the ball',link:'https://www.thefa.com/bootroom/resources/coaching/stay-on-the-ball',
+     objective:'Turn away from pressure and keep the ball for as long as possible.',
+     setup:'Teams of two, one ball, a small square. One player from each team plays 1v1 inside; their teammates wait just outside on opposite sides.',
+     warmup:'Ball each in the square: drag-backs, sole rolls and turns, changing direction on the coach\u2019s call.',
+     main:'One team starts with the ball and tries to keep it as long as possible in the 1v1. The other player must win it first. Variation: when the player passes out to their teammate, they swap places and the teammate comes in with the ball against the same opponent.',
+     game:'The pass out brings the teammate in, and the pair must keep it for a set number of passes or seconds against the defender.',
+     points:['Turn away from the pressure, not into it','Hide the ball with the sole and outside of the foot','Keep the ball moving, do not stand still','Know where your teammate is before you need them','Defenders: force the player toward the edge'],
+     progress:'Easier: a bigger square. Harder: a smaller square, or count only touches with the weaker foot.',
+     dg:[{cap:'Keep it in the 1v1, or use your teammate outside the square.',f:'grid',h:64,items:[['z',24,14,52,36],['A',44,34],['D',54,26],['b',44,37],['A',16,32],['D',84,32],['d',44,34,36,44],['p',36,44,18,34],['n',60,40,1],['n',28,48,4]]}]},
+
+    {title:'1v1 and score',theme:'Shooting',bands:['5-8','9-12'],mins:30,src:'The FA',ref:'1v1 and score',link:'https://www.thefa.com/bootroom/resources/coaching/1v1-and-score',
+     objective:'Use different finishing techniques and handle a 1v1 situation.',
+     setup:'Groups of two or three. Two cones for a goal, a ball each, and a small space.',
+     warmup:'Pairs: dribble at a cone, do a move, and pass through the cone goal.',
+     main:'The defender (or keeper) passes to the attacker, which starts a 1v1. The attacker tries to beat them and score. Swap roles every turn. With three players, add a keeper and rotate through all three positions.',
+     game:'2v2 to cone goals with keepers.',
+     points:['Attack the defender at speed','Use a move to commit the defender, then go','Choose your finish: pass it in or strike it','Shoot early if the defender leaves space','Defenders: approach fast, slow down near the ball'],
+     progress:'Change the goal size, the type of pass to the attacker, or add a time or touch limit.',
+     dg:[{cap:'Defender serves, then defends the 1v1. Attacker beats them and finishes.',f:'grid',h:60,items:[['c',43,8],['c',57,8],['K',50,10],['D',50,24],['A',50,50],['p',50,26,50,47],['r',50,24,50,36],['d',50,48,64,32],['p',64,32,54,9],['n',40,44,1],['n',70,36,2],['n',62,16,3]]}]},
+
+    {title:'Recover and stop',theme:'Defending',bands:['9-12','13-17'],mins:45,src:'The FA',ref:'Recover and stop',link:'https://www.thefa.com/bootroom/resources/coaching/recover-and-stop',
+     objective:'Recover goal-side and stop an attacker in different 1v1 defending situations.',
+     setup:'A rectangle split lengthways into channels, each one a station with a different start. Example: goal at the far end of the channel, and a gate the attacker must dribble through on the way.',
+     warmup:'Recovery runs without a ball: on the whistle, sprint back around a cone and get side-on.',
+     main:'In every station the attacker starts with the ball and the defender starts level or slightly behind. Station 1: the attacker dribbles through a gate, then goes to goal. Station 2: the attacker runs to halfway, turns and heads for a coned box, and the defender must win it in the box. Rotate stations every few minutes.',
+     game:'4v4 where any defender who wins the ball back after a recovery run earns a bonus point.',
+     points:['Sprint the shortest line to get goal-side','Once goal-side, slow down and get side-on','Show the attacker away from goal','Stay on your feet and tackle on a heavy touch','Keep recovering even when it looks lost'],
+     progress:'Easier: the defender gets a head start. Harder: the attacker can shoot early, or make it a 2v1 recovery.',
+     dg:[{cap:'Station 1: attacker goes through the gate, defender recovers goal-side.',f:'grid',items:[['l',35,4,35,66,.4],['l',65,4,65,66,.4],['g',20,4,10],['c',9,32],['c',15,32],['A',16,62],['D',26,62],['d',16,60,12,34],['d',12,30,19,8],['r',26,60,22,18],['t',50,36,'Station 2'],['t',80,36,'Station 3'],['n',29,40,1],['n',27,20,2]]}]},
+
+    {title:'Press for success',theme:'Transition',bands:['13-17'],mins:60,src:'The FA',ref:'Press for success',link:'https://www.thefa.com/bootroom/resources/coaching/press-for-success',
+     objective:'Press with intensity in the final third, together, and react to triggers.',
+     setup:'Pitch split into thirds with a goal at each end. 6v6 including goalkeepers. Spare balls for quick restarts.',
+     warmup:'Rondo 5v2. When the two defenders win it, the whole group switches roles instantly.',
+     main:'Normal game, but a goal scored after winning the ball back in your attacking third counts as three. There are no throw-ins or corners: if the ball goes out, the keeper restarts and must pass to a player in their own defensive third.',
+     game:'The defending team cannot press until the ball enters the middle third. This turns it into a mid-block practice.',
+     points:['Press together, never alone','Go on the trigger: back pass, heavy touch, or a receiver facing their own goal','Curve your run to cut off one side','Nearest players squeeze, far side stays compact','Win it high, then finish fast'],
+     progress:'Easier: the build-up team plays with one fewer. Harder: three-goal bonus only if you score within 8 seconds.',
+     dg:[{cap:'Blue presses the keeper\u2019s pass in the attacking third, curving runs to cut off the switch.',f:'grid',h:80,items:[['g',50,4,14],['g',50,76,14],['l',4,29,96,29,.4],['l',4,52,96,52,.4],['K',50,7],['K',50,73],['D',26,16],['D',74,16],['D',50,24],['A',38,30],['A',62,34],['A',50,42],['A',80,40],['b',26,19],['r',38,30,29,20],['r',50,42,49,30],['r',80,40,72,24],['n',40,22,1],['n',34,34,3],['n',86,30,4]]}]},
+
+    {title:'Build out through the gates',theme:'Build-up',bands:['9-12'],mins:60,src:'US Soccer',ref:'Build up in our own half (7v7 Play-Practice-Play)',link:'https://www.ussoccer.com/soccer-forward/resource-hub/coaches-session-plans',
+     objective:'Pass or dribble the ball out of your own half into the opponent\u2019s half.',
+     setup:'7v7 field. A 40x35 yd area with a regular goal at one end and two 10-yd dribbling gates at the other. Blue: keeper, 3 defenders and 1 midfielder. Red: 2 strikers and 1 midfielder. Use the build-out line.',
+     warmup:'First play: free small-sided games from 1v1 up to 3v3 on small fields with small goals and kick-ins. At the first break, ask questions and let them play to find answers. At the second break, let them share answers.',
+     main:'Blue scores by dribbling through either gate. Red scores in the goal. When red scores, blue restarts with a goal kick. Three 5-minute rounds, rotating players each round.',
+     game:'Second play: 6v6 on a 40x60 yd field. Blue in a 1-3-1-1, red in a 1-1-3-1. Use half-time for guided questions.',
+     points:['Spread out to create openings','Pass or dribble forward through an opening','No opening? Keep it with a pass sideways or back','Support left, right, behind and ahead of the ball','Ask questions at breaks instead of telling'],
+     progress:'Easier: 4v2 to goal with one gate. Harder: 5v4 with a guard on the gates.',
+     dg:[{cap:'Keeper plays wide, the defender drives forward through a gate.',f:'goal',h:80,items:[['g',25,77,14],['g',75,77,14],['K',50,7],['A',20,24],['A',80,24],['A',50,28],['A',50,50],['D',36,36],['D',64,36],['D',50,62],['p',50,7,80,24],['d',80,24,76,74],['r',50,50,30,62],['n',10,32,1],['n',88,50,2],['n',42,56,4]]}]},
+
+    {title:'Build up to three counter goals',theme:'Build-up',bands:['9-12','13-17'],mins:60,src:'US Soccer',ref:'Build up in our own half 2 (7v7 Play-Practice-Play)',link:'https://www.ussoccer.com/soccer-forward/resource-hub/coaches-session-plans',
+     objective:'Move the ball forward with width and support, and pick the open target.',
+     setup:'A 40x35 yd area with a regular goal and three small counter goals at the far end. Blue: keeper, 2 defenders, 1 midfielder and 2 wingers. Red: 1 striker, 2 wingers and 1 midfielder. Build-out line in effect.',
+     warmup:'First play: free 1v1 to 3v3 games on small fields, with guided questions at the breaks.',
+     main:'Blue scores by passing into any of the three counter goals. Red scores in the regular goal. When red scores, blue restarts with a goal kick. Rotate players every interval.',
+     game:'Second play: 6v6 on a 40x60 yd field with the same formations as the build-out session.',
+     points:['Wingers hold the width to stretch the defense','Always offer an option on both sides of the ball','When forward is closed, move it and look again','Choose the counter goal the defense left open','Pass firm and along the ground'],
+     progress:'Easier: 4v2 to two counter goals. Harder: red adds a third striker.',
+     dg:[{cap:'Width from the wingers opens a lane to the far counter goal.',f:'goal',h:80,items:[['g',20,77,8],['g',50,77,8],['g',80,77,8],['K',50,7],['A',32,20],['A',68,20],['A',50,34],['A',10,46],['A',90,46],['D',50,22],['D',30,40],['D',70,40],['D',50,56],['p',50,7,68,20],['p',68,20,90,46],['d',90,46,82,74],['n',6,38,1],['n',58,28,2],['n',74,62,4]]}]},
+
+    {title:'Attack the goal, defend the end zone',theme:'Possession',bands:['9-12'],mins:60,src:'US Soccer',ref:'Build up in the opponent\u2019s half (7v7 Play-Practice-Play)',link:'https://www.ussoccer.com/soccer-forward/resource-hub/coaches-session-plans',
+     objective:'Pass or dribble forward in the attacking half to create scoring chances.',
+     setup:'A 24x35 yd area with a regular goal at one end and an end zone at the other. Blue: 1 midfielder, 2 wingers and 1 striker. Red: keeper, 2 defenders and 1 midfielder. Build-out line in effect.',
+     warmup:'First play: free 1v1 to 3v3 games. Key words for the breaks: dribble, connect, possess, help.',
+     main:'Blue scores in the goal. Red scores by dribbling or passing to a player who gets into the end zone. When blue scores, red restarts with a goal kick.',
+     game:'Second play: 6v6 on a 40x60 yd field, blue in a 1-1-3-1 and red in a 1-3-1-1.',
+     points:['Open up: spread out to make the field big','Dribble when you have space or a 1v1','Connect forward when a gap opens between two defenders','Offer angles left, right, behind and ahead','When forward is shut, keep the ball and move it'],
+     progress:'Easier: 3v3 against a keeper and two defenders. Harder: red adds a third defender.',
+     dg:[{cap:'Midfielder finds the wide player, who drives inside to create the chance.',f:'goal',items:[['z',6,58,88,8,'Red end zone'],['K',50,7],['D',38,22],['D',62,22],['D',50,36],['A',50,16],['A',14,32],['A',86,32],['A',50,48],['p',50,48,86,32],['d',86,32,72,16],['p',72,16,54,4],['n',8,24,1],['n',80,22,2],['n',60,52,4]]}]},
+
+    {title:'Score through the gaps',theme:'Shooting',bands:['9-12'],mins:60,src:'US Soccer',ref:'Improve scoring goals (7v7 Play-Practice-Play)',link:'https://www.ussoccer.com/soccer-forward/resource-hub/coaches-session-plans',
+     objective:'Finish chances, and pass or combine to open a shooting lane.',
+     setup:'A 24x24 yd area with a regular goal and two 5-yd dribbling gates. Blue: 1 midfielder, 2 wingers and 1 striker. Red: keeper, 2 defenders and 1 midfielder.',
+     warmup:'First play: free 1v1 to 3v3 games on small fields. Ask: when is a good time to shoot?',
+     main:'Blue scores in the goal. Red scores by dribbling through either gate. When blue scores, red restarts with a goal kick. Three 5-minute rounds.',
+     game:'Second play: 6v6 on a 40x60 yd field, blue in a 1-1-3-1 and red in a 1-3-1-1.',
+     points:['Shoot as soon as you see the goal','If two defenders block the way, pass to move them','Make a 2v1 and use the wall pass','Low and to the corners, away from the keeper','Follow every shot for the rebound'],
+     progress:'Easier: 3v3 with one gate. Harder: red adds a defender.',
+     dg:[{cap:'Wall pass around the defender to open the shot.',f:'goal',h:60,items:[['g',25,57,10],['g',75,57,10],['K',50,7],['D',42,20],['D',58,26],['D',50,40],['A',22,30],['A',78,32],['A',50,50],['A',50,14],['p',50,50,78,32],['r',50,48,62,22],['p',78,32,62,22],['p',62,22,55,4],['n',70,46,2],['n',72,22,3],['n',62,10,4]]}]},
+
+    {title:'High press: win it in their half',theme:'Defending',bands:['9-12','13-17'],mins:60,src:'US Soccer',ref:'Prevent the opponent from building up in their own half (7v7 Play-Practice-Play)',link:'https://www.ussoccer.com/soccer-forward/resource-hub/coaches-session-plans',
+     objective:'Stop the opponent moving the ball forward and win it back high up the field.',
+     setup:'A 24x35 yd area with a regular goal and an end zone. Blue: 1 midfielder, 2 wingers and 1 striker press to win the ball and score in the goal. Red: keeper, 2 defenders, 1 midfielder and 1 striker try to reach the end zone. Build-out line in effect.',
+     warmup:'First play: free 1v1 to 3v3 games. Key words: block the way, closest defender, help.',
+     main:'Red builds out from the keeper and scores by dribbling or passing into the end zone. Blue tries to win it and score in the goal. When blue scores, red restarts with a goal kick.',
+     game:'Second play: 6v6, blue in a 1-1-3-1 and red in a 1-2-1-2.',
+     points:['Closest player gets between the ball and the goal','Hassle the ball carrier to force a mistake','Teammates tuck in behind for cover and balance','Press on a bad touch or a receiver facing their own goal','Win it, then finish quickly'],
+     progress:'Easier: 4v4 without the red striker. Harder: widen the area to 32 yd.',
+     dg:[{cap:'Striker presses the receiver, teammates squeeze in behind.',f:'goal',items:[['z',6,58,88,8,'Red end zone'],['K',50,7],['D',28,18],['D',72,18],['D',50,30],['D',50,48],['A',40,24],['A',64,28],['A',46,40],['A',24,38],['b',29,21],['p',50,7,28,18],['r',40,24,32,20],['r',24,38,26,28],['r',46,40,46,34],['n',38,14,1],['n',16,30,3],['n',58,40,3]]}]},
+
+    {title:'Compact and squeeze',theme:'Defending',bands:['9-12'],mins:45,src:'US Soccer',ref:'Prevent the opponent from creating chances in our half (7v7 Play-Practice-Play)',link:'https://www.ussoccer.com/soccer-forward/resource-hub/coaches-session-plans',
+     objective:'Defend together: pressure the ball and stay compact behind it.',
+     setup:'Two 19x25 yd fields in your own half, a goal at each end. 3v3 on each field, with kick-ins or dribble-ins.',
+     warmup:'First play: free 1v1 to 3v3 games. Key words: shield, compress, press.',
+     main:'Both teams score in the opponent\u2019s goal. Freeze the game when the defending three get it right and ask them what made it work: one shielding the goal, two squeezed in behind.',
+     game:'Second play: 6v6, blue in a 1-3-1-1 and red in a 1-1-3-1.',
+     points:['Closest defender steps in front of the ball to shield the goal','The other two squeeze in behind to close passing lanes','Press when your teammates are set behind you','Cover at an angle, close enough to help','Stay compact as the ball moves'],
+     progress:'Easier: 3v2. Harder: 4v5 to four small goals.',
+     dg:[{cap:'One presses, two squeeze in behind to close the forward passes.',f:'grid',items:[['g',50,4,12],['g',50,66,12],['D',30,46],['D',66,42],['D',50,56],['A',34,38],['A',46,28],['A',60,30],['b',31,44],['r',38,30,35,36],['n',24,36,1],['n',52,20,2],['n',70,24,4]]}]},
+
+    {title:'Protect the goal',theme:'Defending',bands:['9-12'],mins:45,src:'US Soccer',ref:'Prevent the opponent from scoring (7v7 Play-Practice-Play)',link:'https://www.ussoccer.com/soccer-forward/resource-hub/coaches-session-plans',
+     objective:'Deny scoring chances with pressure and cover, then counter.',
+     setup:'A 19x25 yd field with a goal at one end and two small counter goals at the other. Blue: keeper and 2 defenders. Red: 3 attackers.',
+     warmup:'First play: free 1v1 to 3v3 games. Key words: prevent, force, help.',
+     main:'Red scores in the goal. Blue scores by passing into either small goal after winning the ball.',
+     game:'Second play: 6v6, blue in a 1-2-1-2 and red in a 1-1-3-1.',
+     points:['First, get between the ball and the goal','Closest defender pressures to force the ball away','Second defender covers behind','Keeper talks and organizes','When you win it, pass into a small goal fast'],
+     progress:'Easier: 3v2. Harder: 4v4 with an extra midfielder on each side.',
+     dg:[{cap:'Pressure from the first defender, cover from the second, keeper organizing.',f:'goal',h:60,items:[['g',30,57,8],['g',70,57,8],['K',50,7],['A',42,26],['A',56,18],['D',38,34],['D',68,28],['D',26,16],['b',38,37],['r',48,18,42,23],['n',32,26,1],['n',64,12,3],['n',36,8,4]]}]},
+
+    {title:'Cover and trust',theme:'Defending',bands:['13-17'],mins:60,src:'CONMEBOL',ref:'Manual de Entrenamiento Integral: Categor\u00edas Juveniles',link:'https://www.conmebol.com/wp-content/uploads/2022/01/Manual-Juvenil-Esp.pdf',
+     objective:'Defend as a unit: the nearest defender challenges, and teammates cover so they can trust the challenge.',
+     setup:'Final third of the field. Keeper and 4 defenders against 6 attackers (3 forwards, 3 midfielders). Two small goals near halfway for the defenders.',
+     warmup:'Pairs: one attacks a cone line, the other jockeys. Then threes, with a covering player behind.',
+     main:'The attackers start with the ball and try to score. The defenders protect the goal and cover the defender closest to the ball. When they win it, they attack the small goals.',
+     game:'Full 8v8 where a goal from a quick break after a regain counts double.',
+     points:['Nearest defender challenges, the next one covers at an angle','Trust your cover and commit to the challenge','Shift together as the ball moves','Fill the zones in front of goal before the ball arrives','Win it and break out to the small goals'],
+     progress:'Easier: 5 attackers. Harder: attackers get a bonus for scoring within 10 seconds.',
+     dg:[{cap:'Pressure on the ball, cover behind it, the line shifts together.',f:'goal',h:80,items:[['g',30,77,10],['g',70,77,10],['K',50,7],['A',24,28],['A',40,24],['A',58,24],['A',74,26],['D',18,42],['D',38,44],['D',50,34],['D',64,42],['D',82,42],['D',50,56],['b',18,45],['r',24,28,20,38],['r',40,24,30,30],['n',12,34,1],['n',36,34,2],['n',50,16,4]]}]},
+
+    {title:'Lane duels',theme:'Dribbling & 1v1',bands:['9-12','13-17'],mins:45,src:'CONMEBOL',ref:'Manual de Entrenamiento Integral: Categor\u00edas Juveniles',link:'https://www.conmebol.com/wp-content/uploads/2022/01/Manual-Juvenil-Esp.pdf',
+     objective:'Practice dribbling past an opponent and defensive approach, alone and as a group.',
+     setup:'3v3 in an area about 15x10 yd split into three lanes, a goal at each end. Each player marks their opponent in their own lane. Scale the area down for younger players.',
+     warmup:'1v1 in a 10x5 yd channel with a goal. The defender may not enter the area in front of the goal, so they have to win it before then.',
+     main:'Each player duels their opponent in their lane, with teammates in other lanes as supports. A goal is 1 point. A goal scored after beating a defender, or after winning the ball from one, is 3 points. Change lanes every few minutes.',
+     game:'Keeper plus 5v5 on a bigger field. A goal assisted or scored after beating a defender in a marked zone is worth 5 points.',
+     points:['Attack your defender with speed and a change of direction','Defenders: close fast, then slow down and get side-on','Use teammates in other lanes when stuck','Win it back and go straight away','Be brave: beating your player is worth more'],
+     progress:'Easier: defenders only shadow for the first round. Harder: allow players to switch lanes.',
+     dg:[{cap:'Three lanes, three duels. Beat your player for 3 points.',f:'grid',items:[['l',35,4,35,66,.4],['l',65,4,65,66,.4],['g',50,4,14],['g',50,66,14],['A',20,46],['D',20,34],['A',50,52],['D',50,40],['A',80,48],['D',80,36],['d',20,46,28,22],['p',50,52,80,48],['n',12,30,1],['n',58,34,2],['n',70,58,3]]}]},
+
+    {title:'Two-box switch',theme:'Passing',bands:['9-12','13-17'],mins:45,src:'CONMEBOL',ref:'Manual de Entrenamiento Integral: Categor\u00edas Juveniles',link:'https://www.conmebol.com/wp-content/uploads/2022/01/Manual-Juvenil-Esp.pdf',
+     objective:'Short and medium passing, body shape and receiving, then a longer switch.',
+     setup:'Two small boxes (5x5 yd for older players, bigger for younger) about 15 yd apart. Four attackers and two defenders in one box. More of the attacking team wait in the other box.',
+     warmup:'In the box without defenders: pass, move to a new side, and receive on the back foot.',
+     main:'The four keep the ball against the two. After 5 passes they can play into the other box. 5 passes earns 1 point; a completed pass between boxes earns 3. If the defenders win it, the waiting players come in and the last two attackers to touch the ball step out.',
+     game:'6v6 where a switch of play that reaches a teammate on the far side earns a bonus point.',
+     points:['Open your body so you can see both boxes','Pass firm, along the ground, with the inside of the foot','Move after every pass to make a new angle','Disguise the pass so defenders cannot read it','For the switch, lock the ankle and strike through the middle'],
+     progress:'Easier: bigger boxes or 4v1. Harder: two-touch limit, or three defenders.',
+     dg:[{cap:'Five passes in the box, then switch to the far box for 3 points.',f:'grid',h:60,items:[['z',8,16,26,26,'Box A'],['z',66,16,26,26,'Box B'],['A',12,22],['A',30,22],['A',12,38],['A',30,38],['D',20,28],['D',24,36],['A',72,24],['A',86,36],['p',12,22,30,22],['p',30,22,30,38],['p',30,38,72,24],['n',40,24,1],['n',20,48,3],['n',52,36,5]]}]},
+
+    {title:'Finish with helpers',theme:'Shooting',bands:['9-12','13-17'],mins:30,src:'CONMEBOL',ref:'Manual de Entrenamiento Integral: Categor\u00edas Juveniles',link:'https://www.conmebol.com/wp-content/uploads/2022/01/Manual-Juvenil-Esp.pdf',
+     objective:'Finish from short and medium range under pressure.',
+     setup:'Area about 20x10 yd with a goal at each end. A 1v1 in the middle, plus two neutral helpers on the sides who play for whoever has the ball but cannot shoot.',
+     warmup:'Strikes from 10 to 15 yd: inside of the foot to a corner, then laces, both feet.',
+     main:'Shot on target: 1 point. Finish after a pass from a helper: 2 points. Goal: 3 points. Swap the pair in the middle every couple of minutes.',
+     game:'3v3 plus neutrals on a short pitch. Goals from first-time finishes count double.',
+     points:['Use the helper to get a better shooting angle','Shoot early, low, toward the corners','Plant foot beside the ball, slightly ahead','Close range: lean back a little for control and accuracy','On a volley, strike as the ball drops'],
+     progress:'Easier: the defender cannot tackle, only block. Harder: helpers are limited to one touch.',
+     dg:[{cap:'Bounce off a helper to open the angle, then finish.',f:'grid',h:80,items:[['g',50,4,14],['g',50,76,14],['K',50,7],['K',50,73],['N',12,40],['N',88,40],['A',46,48],['D',52,40],['p',46,48,12,40],['r',46,48,38,26],['p',12,40,38,26],['p',38,26,54,4],['n',22,30,1],['n',30,20,2],['n',58,14,2]]}]},
+
+    {title:'Plan your 1v1',theme:'Dribbling & 1v1',bands:['13-17'],mins:30,src:'CONMEBOL',ref:'Manual de Entrenamiento Integral: Categor\u00edas Juveniles',link:'https://www.conmebol.com/wp-content/uploads/2022/01/Manual-Juvenil-Esp.pdf',
+     objective:'Read an opponent\u2019s weaknesses and make a plan to beat them.',
+     setup:'A 25x18 yd area with a goal and keeper. One attacker against one defender. A gate at the other end for the defender.',
+     warmup:'Pairs: the attacker tries three different moves against a passive defender, and the defender says which one fooled them.',
+     main:'Before each rep, the attacker tells the coach the plan to beat this defender, for example "fake left, go right." A goal scored using the plan is worth 5 points. If the defender wins it, they score by dribbling through the gate under control. Rotate matchups each round; the player with the most points wins.',
+     game:'Small-sided game where each player names one target opponent to beat before kickoff.',
+     points:['Study the defender: stronger foot, how close, how fast','Pick one move and commit to it','Set the defender up with your first touch','Shoot with the decision already made','Afterwards: did the plan work, and why?'],
+     progress:'Easier: the defender starts further away. Harder: add a covering defender.',
+     dg:[{cap:'Attacker states the plan, then sells the fake and finishes.',f:'goal',h:60,items:[['g',50,57,12],['K',50,7],['D',50,26],['A',50,46],['d',50,44,40,34],['d',40,34,60,22],['p',60,22,54,4],['t',78,46,'Plan first'],['n',38,22,1],['n',30,38,3],['n',68,14,4]]}]},
+
+    {title:'Keep it, win it back',theme:'Transition',bands:['13-17'],mins:60,src:'CONMEBOL',ref:'Manual de Entrenamiento Integral: Categor\u00edas Juveniles',link:'https://www.conmebol.com/wp-content/uploads/2022/01/Manual-Juvenil-Esp.pdf',
+     objective:'Keep possession, and when it is lost, press immediately to win it back.',
+     setup:'Middle of the field. 6 plus a keeper against 6 plus a keeper, with a goal at each end.',
+     warmup:'Rondo 4v2. When the defenders win it, the two players who lost it chase for 5 seconds.',
+     main:'Play starts with the keeper of the attacking team. When a team loses the ball, it must press straight away. A goal is 1 point. Winning the ball back in the same zone where you lost it is 1 point. If that sequence ends in a shot, 2 points; if it ends in a goal, 3.',
+     game:'Same game, but a team that wins it back inside 5 seconds can score in either goal.',
+     points:['Switch your mindset instantly when the ball is lost','Nearest player presses the ball, others close the space around it','Keep the ball with short supports and quick switches','After a regain, first pass out of the pressure zone','Then spread to use the whole width'],
+     progress:'Easier: 6v5. Harder: two-touch limit for the team in possession.',
+     dg:[{cap:'Ball lost: the nearest three press, the rest close the space around it.',f:'grid',h:80,items:[['g',50,4,14],['g',50,76,14],['l',4,29,96,29,.4],['l',4,52,96,52,.4],['K',50,7],['K',50,73],['D',42,40],['D',66,30],['D',24,46],['A',34,46],['A',50,34],['A',56,48],['A',78,40],['b',42,43],['r',34,46,39,42],['r',50,34,44,38],['r',56,48,46,42],['n',30,36,1],['n',62,44,2],['n',86,32,5]]}]}
+  ].map(p=>({id:uid(),link:BOOTROOM,by:'Jason',src:'Lobos staff',...p}));
+  const teams=[{id:'u8ba',name:'U8 Boys A',code:'LOBOS8BA'},{id:'u8bb',name:'U8 Boys B',code:'LOBOS8BB'},{id:'u8ga',name:'U8 Girls A',code:'LOBOS8GA'},{id:'u8gb',name:'U8 Girls B',code:'LOBOS8GB'},{id:'u9b',name:'U9 Boys',code:'LOBOS9B'},{id:'u9g',name:'U9 Girls',code:'LOBOS9G'},{id:'u10ba',name:'U10 Boys A',code:'LOBOS10BA'},{id:'u10bb',name:'U10 Boys B',code:'LOBOS10BB'},{id:'u10ga',name:'U10 Girls A',code:'LOBOS10GA'},{id:'u10gb',name:'U10 Girls B',code:'LOBOS10GB'},{id:'u11ba',name:'U11 Boys A',code:'LOBOS11BA'},{id:'u11bb',name:'U11 Boys B',code:'LOBOS11BB'},{id:'u12ba',name:'U12 Boys A',code:'LOBOS12BA'},{id:'u12bb',name:'U12 Boys B',code:'LOBOS12BB'},{id:'u12ga',name:'U12 Girls A',code:'LOBOS12GA'},{id:'u12gb',name:'U12 Girls B',code:'LOBOS12GB'},{id:'u13g',name:'U13 Girls',code:'LOBOS13G'},{id:'u14b',name:'U14 Boys',code:'LOBOS14B'}];
+  const names={u10ba:['Mateo R.','Sofia G.','Liam T.','Ava M.','Noah K.','Isabella P.'],u10bb:['Diego L.','Emma S.','Lucas H.','Mia C.','Elijah W.']};
+  const players=[];
+  for(const t in names) names[t].forEach(n=>players.push({id:uid(),team:t,name:n,pin:'0000'}));
+  const homework={
+    u10ba:[{d:'toe',target:'3 x 60 seconds'},{d:'inout',target:'50 each foot'},{d:'wall',target:'50 each foot'},{d:'turns',target:'10 of each turn per foot'},{d:'jug',target:'10 minutes, beat your record'}],
+    u10bb:[{d:'toe',target:'3 x 60 seconds'},{d:'rolls',target:'50 each foot'},{d:'wall',target:'30 each foot'},{d:'cone',target:'5 runs each foot'}]
+  };
+  const logs=[],days={};
+  const T=today();
+  players.forEach((p,i)=>{
+    days[p.id]=[];
+    for(let k=1;k<=14;k++){
+      const r=((i*7+k*13)%10)/10;
+      if(r<(i===0?0.95:0.65)){const dt=addDays(T,-k);days[p.id].push(dt);homework[p.team].forEach(h=>logs.push({p:p.id,d:h.d,date:dt}));}
+    }
+  });
+  return {teams,coaches:[{id:'c1',name:'Jason',pin:'1234'},{id:'c2',name:'Tori',pin:'1234'},{id:'c3',name:'Ciri',pin:'1234'}],
+    players,plans,drills,homework,logs,days,session:null,planSeedV:PLAN_SEED_V};
+}
+
+S=load()||seed();
+(function migratePlans(){
+  if((S.planSeedV||1)>=PLAN_SEED_V)return;
+  const fresh=seed().plans,byTitle=new Map(S.plans.map(p=>[p.title,p]));
+  for(const f of fresh){const ex=byTitle.get(f.title);
+    if(!ex)S.plans.push(f);else if(!ex.src){ex.src=f.src;if(f.ref)ex.ref=f.ref;if(f.src!=='Lobos staff')ex.link=f.link}}
+  S.planSeedV=PLAN_SEED_V;
+})();
+save();
+
+/* ===== Scoring ===== */
+const player=id=>S.players.find(p=>p.id===id);
+const drill=id=>S.drills.find(d=>d.id===id);
+const team=id=>S.teams.find(t=>t.id===id);
+function dayset(pid){return new Set(S.days[pid]||[])}
+function streak(pid){const s=dayset(pid);let d=today();if(!s.has(d))d=addDays(d,-1);let n=0;while(s.has(d)){n++;d=addDays(d,-1)}return n}
+function bestStreak(pid){const arr=[...(S.days[pid]||[])].sort();let best=0,run=0,prev=null;for(const d of arr){run=(prev&&addDays(prev,1)===d)?run+1:1;best=Math.max(best,run);prev=d}return best}
+function points(pid,sinceDays){const from=sinceDays?addDays(today(),-(sinceDays-1)):'0000';
+  return S.logs.filter(l=>l.p===pid&&l.date>=from).length*10+(S.days[pid]||[]).filter(d=>d>=from).length*20}
+const BADGES=[
+  {icon:'⚽',name:'First session',desc:'Finish all your reps for one day',test:p=>(S.days[p]||[]).length>=1},
+  {icon:'🎩',name:'Hat trick',desc:'3-day streak',test:p=>bestStreak(p)>=3},
+  {icon:'📅',name:'Full week',desc:'7-day streak',test:p=>bestStreak(p)>=7},
+  {icon:'🐺',name:'Lone wolf',desc:'14-day streak',test:p=>bestStreak(p)>=14},
+  {icon:'🏆',name:'Month of touches',desc:'30-day streak',test:p=>bestStreak(p)>=30},
+  {icon:'💯',name:'500 club',desc:'Earn 500 points',test:p=>points(p)>=500},
+  {icon:'🔥',name:'25 sessions',desc:'Finish 25 days of reps',test:p=>(S.days[p]||[]).length>=25}
+];
+
+/* ===== Views ===== */
+function toast(msg){const t=document.createElement('div');t.className='toast';t.setAttribute('role','status');t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2600)}
+
+function loginView(){
+  const r=ui.loginRole;
+  // Default to a team that actually has players (demo data lives on U10 Boys).
+  const tId=ui.loginTeam||(S.teams.find(t=>S.players.some(p=>p.team===t.id))||S.teams[0]).id;
+  let fields;
+  if(r==='player'){
+    fields=`<label for="lt">Team</label><select id="lt" data-change="login-team">${S.teams.map(t=>`<option value="${t.id}" ${t.id===tId?'selected':''}>${esc(t.name)}</option>`).join('')}</select>
+    <label for="lp">Your name</label><select id="lp">${S.players.filter(p=>p.team===tId).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select>`;
+  }else{
+    fields=`<label for="lc">Coach</label><select id="lc">${S.coaches.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>`;
+  }
+  return `<div class="login">
+    <h1 class="wordmark">Lobos<span>Training Lab</span></h1>
+    <p class="muted">Session plans for coaches. Daily reps for players.</p>
+    <div class="seg" role="group" aria-label="Sign in as">
+      <button data-act="login-role" data-v="player" aria-pressed="${r==='player'}">Player</button>
+      <button data-act="login-role" data-v="coach" aria-pressed="${r==='coach'}">Coach</button>
+    </div>
+    ${fields}
+    <label for="lpin">PIN</label><input id="lpin" type="password" inputmode="numeric" maxlength="6" autocomplete="off">
+    <p class="err" id="err"></p>
+    <button class="btn" style="width:100%" data-act="login">Sign in</button>
+    <div class="hint"><strong>Demo mode.</strong> Coaches: Jason, Tori or Ciri with PIN 1234. Players: any name with PIN 0000. Data stays on this device until we connect the club database.</div>
+  </div>`;
+}
+
+function header(){
+  const s=S.session;
+  const sub=s.role==='coach'?'Coach '+esc(S.coaches.find(c=>c.id===s.id).name):esc(player(s.id).name)+', '+esc(team(player(s.id).team).name);
+  return `<header class="top"><div class="wrap"><div><h1>Lobos Training Lab</h1><p class="sub">${sub}</p></div><button class="link" data-act="logout">Sign out</button></div></header>`;
+}
+function nav(){
+  const tabs=S.session.role==='coach'?[['plans','Plans'],['homework','Homework'],['squad','Squad'],['board','Leaderboard']]:[['today','Today'],['board','Leaderboard'],['badges','Badges']];
+  return `<nav class="tabs" aria-label="Sections"><div class="wrap">${tabs.map(([v,l])=>`<button data-act="nav" data-v="${v}" ${ui.view===v?'aria-current="page"':''}>${l}</button>`).join('')}</div></nav>`;
+}
+
+/* --- Player --- */
+function todayView(){
+  const p=player(S.session.id),T=today();
+  const hw=S.homework[p.team]||[];
+  const done=new Set(S.logs.filter(l=>l.p===p.id&&l.date===T).map(l=>l.d));
+  const n=hw.filter(h=>done.has(h.d)).length;
+  const st=streak(p.id),ds=dayset(p.id);
+  const msg=ds.has(T)?'Today is done. See you tomorrow.':st>0?'Finish today\u2019s reps to keep it going.':'Finish today\u2019s reps to start a streak.';
+  const letters=['S','M','T','W','T','F','S'];
+  const week=[...Array(7)].map((_,i)=>{const d=addDays(T,i-6);const [y,m,dd]=d.split('-').map(Number);const wd=new Date(y,m-1,dd).getDay();
+    return `<div class="day ${ds.has(d)?'on':''} ${d===T?'today':''}"><i></i>${letters[wd]}</div>`}).join('');
+  return `<div class="tsplit"><section class="tstat"><section class="hero" aria-label="Streak"><div class="big">${st}</div><div><h2>day streak</h2><p class="muted">${msg}</p></div></section>
+    <div class="week" aria-label="Last 7 days">${week}</div>
+    <div class="card"><div class="row between"><strong>${n} of ${hw.length} done today</strong><span class="muted small">${points(p.id,7)} pts this week</span></div>
+    <div class="bar"><b style="width:${hw.length?Math.round(n/hw.length*100):0}%"></b></div></div>
+    </section><section>${hw.length?'':`<p class="muted">Your coach hasn\u2019t set reps yet. Check back soon.</p>`}
+    <div class="tdrills">${hw.map(h=>{const d=drill(h.d);if(!d)return'';const ok=done.has(h.d);
+      return `<div class="card drill ${ok?'done':''}"><div><h3>${esc(d.name)}</h3><p class="target">${esc(h.target)}</p><p class="small muted">${esc(d.how)}</p>${d.video?`<p class="small"><a href="${esc(d.video)}" target="_blank" rel="noopener">Watch the demo</a></p>`:''}</div>
+      <button class="btn ${ok?'ghost':'go'} small tick" data-act="toggle-drill" data-id="${h.d}" aria-pressed="${ok}">${ok?'Undo':'Done'}</button></div>`}).join('')}</div></section></div>`;
+}
+function boardView(){
+  const me=player(S.session.id);
+  const list=S.players.filter(p=>p.team===me.team).map(p=>({p,w:points(p.id,7),s:streak(p.id)})).sort((a,b)=>b.w-a.w);
+  return `<h2>${esc(team(me.team).name)} this week</h2><p class="muted small">10 points per drill, 20 bonus for finishing a full day. Resets on a rolling 7 days.</p>
+  <div class="card">${list.map((r,i)=>`<div class="lb ${r.p.id===me.id?'me':''}"><span class="pos">${i+1}</span><span>${esc(r.p.name)}${r.p.id===me.id?' (you)':''}<br><span class="small muted">${r.s} day streak</span></span><span class="pts">${r.w}</span></div>`).join('')}</div>`;
+}
+function badgesView(){
+  const pid=S.session.id;
+  return `<h2>Badges</h2><p class="muted small">${points(pid)} total points. Best streak: ${bestStreak(pid)} days.</p>
+  <div class="badges">${BADGES.map(b=>{const got=b.test(pid);return `<div class="card badge ${got?'got':''}"><div class="medal" aria-hidden="true">${b.icon}</div><div><h3>${b.name}</h3><p class="small muted">${got?'Earned. ':''}${b.desc}</p></div></div>`}).join('')}</div>`;
+}
+
+/* --- Diagrams --- */
+const DCOL={A:'#1F4E8C',D:'#E2731F',N:'#FFFFFF',K:'#8E44AD'};
+let dgN=0;
+function dgArrow(k,a,id){
+  let [x1,y1,x2,y2]=a;const dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy)||1,ux=dx/len,uy=dy/len;
+  if(len>10){x1+=ux*2.6;y1+=uy*2.6;x2-=ux*2.6;y2-=uy*2.6}
+  const st=`stroke="#fff" stroke-width=".6" fill="none" marker-end="url(#${id})"`;
+  if(k==='p')return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" ${st}/>`;
+  if(k==='r')return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" ${st} stroke-dasharray="1.6 1.2"/>`;
+  const L=Math.hypot(x2-x1,y2-y1),n=Math.max(4,Math.floor(L/1.2)),px=-uy,py=ux;let d=`M${x1.toFixed(1)},${y1.toFixed(1)}`;
+  for(let i=1;i<=n;i++){const t=i/n,amp=i>n-3?0:.9*Math.sin(t*L/2.4*Math.PI);d+=` L${(x1+(x2-x1)*t+px*amp).toFixed(1)},${(y1+(y2-y1)*t+py*amp).toFixed(1)}`}
+  return `<path d="${d}" ${st}/>`;
+}
+function dgText(x,y,t,anchor='middle'){return `<text x="${x}" y="${y}" font-size="2.8" fill="#fff" text-anchor="${anchor}" font-family="Barlow,sans-serif" font-weight="600">${esc(t)}</text>`}
+function svgDiagram(dg){
+  const h=dg.h||70,id='ah'+(dgN++),o=[],ar=[],top=[],mk=[],used=new Set();
+  o.push(`<rect width="100" height="${h}" fill="#3B8857"/>`);
+  for(let y=10;y<h;y+=20)o.push(`<rect y="${y}" width="100" height="10" fill="#42915F"/>`);
+  const ln='fill="none" stroke="#fff" stroke-width=".5" stroke-opacity=".9"';
+  if(dg.f==='grid')o.push(`<rect x="4" y="4" width="92" height="${h-8}" ${ln} stroke-dasharray="2 1.5"/>`);
+  if(dg.f==='goal')o.push(`<path d="M4,${h} V4 H96 V${h}" ${ln}/>`,`<rect x="22" y="4" width="56" height="24" ${ln}/>`,`<rect x="38" y="4" width="24" height="8" ${ln}/>`,`<rect x="44" y="1" width="12" height="3" ${ln} stroke-width=".8"/>`,`<circle cx="50" cy="20" r=".7" fill="#fff"/>`,`<path d="M44,28 A10,10 0 0,0 56,28" ${ln}/>`);
+  for(const it of dg.items){const [k,...a]=it;
+    if(k==='z'){o.push(`<rect x="${a[0]}" y="${a[1]}" width="${a[2]}" height="${a[3]}" fill="#fff" fill-opacity=".12" stroke="#fff" stroke-opacity=".6" stroke-width=".4" stroke-dasharray="1.5 1"/>`);if(a[4])o.push(dgText(a[0]+1.5,a[1]+4,a[4],'start'))}
+    else if(k==='l')o.push(`<line x1="${a[0]}" y1="${a[1]}" x2="${a[2]}" y2="${a[3]}" stroke="#fff" stroke-width="${a[4]||.5}"/>`);
+    else if(k==='g'){const w=a[2]||10;o.push(`<rect x="${a[0]-w/2}" y="${a[1]-1}" width="${w}" height="2" fill="#fff" fill-opacity=".3" stroke="#fff" stroke-width=".6"/>`)}
+    else if(k==='c'){o.push(`<path d="M${a[0]},${a[1]-1.7} L${a[0]+1.5},${a[1]+1.1} L${a[0]-1.5},${a[1]+1.1}Z" fill="#FFD23F" stroke="#172036" stroke-width=".25"/>`);used.add('c')}
+    else if(k==='p'||k==='r'||k==='d'){ar.push(dgArrow(k,a,id));used.add(k)}
+    else if(DCOL[k]){const dark=k==='N';top.push(`<circle cx="${a[0]}" cy="${a[1]}" r="2.6" fill="${DCOL[k]}" stroke="${dark?'#172036':'#fff'}" stroke-width=".5"/>`+(a[2]?`<text x="${a[0]}" y="${a[1]+.95}" font-size="2.6" text-anchor="middle" fill="${dark?'#172036':'#fff'}" font-family="Barlow,sans-serif" font-weight="700">${esc(a[2])}</text>`:''));used.add(k)}
+    else if(k==='b')top.push(`<circle cx="${a[0]}" cy="${a[1]}" r="1.1" fill="#fff" stroke="#172036" stroke-width=".4"/>`);
+    else if(k==='n'){mk.push(`<circle cx="${a[0]}" cy="${a[1]}" r="2.3" fill="#FFD23F" stroke="#172036" stroke-width=".4"/><text x="${a[0]}" y="${a[1]+1}" font-size="2.8" text-anchor="middle" fill="#172036" font-family="Barlow,sans-serif" font-weight="700">${a[2]}</text>`);used.add('n')}
+    else if(k==='t')o.push(dgText(a[0],a[1],a[2],a[3]));
+  }
+  const svg=`<svg class="dg" viewBox="0 0 100 ${h}" role="img" aria-label="${esc(dg.cap||'Practice diagram')}"><defs><marker id="${id}" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="4" markerHeight="4" orient="auto"><path d="M0,0 L6,3 L0,6Z" fill="#fff"/></marker></defs>${o.join('')}${ar.join('')}${top.join('')}${mk.join('')}</svg>`;
+  const dot=c=>`<svg viewBox="0 0 18 12"><circle cx="9" cy="6" r="4.5" fill="${c}" stroke="#172036" stroke-width="1"/></svg>`;
+  const lineIc=da=>`<svg viewBox="0 0 18 12"><line x1="1" y1="6" x2="17" y2="6" stroke="currentColor" stroke-width="1.6" ${da?'stroke-dasharray="3 2.5"':''}/></svg>`;
+  const L={A:[dot(DCOL.A),'Focus team'],D:[dot(DCOL.D),'Opponents'],N:[dot('#fff'),'Server or neutral'],K:[dot(DCOL.K),'Goalkeeper'],c:[`<svg viewBox="0 0 18 12"><path d="M9,1 L14,11 L4,11Z" fill="#FFD23F" stroke="#172036"/></svg>`,'Cone'],
+    p:[lineIc(0),'Pass or shot'],r:[lineIc(1),'Run'],d:[`<svg viewBox="0 0 18 12"><path d="M1,6 Q3.5,2 6,6 T11,6 T16,6" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>`,'Dribble'],n:[dot('#FFD23F'),'Coaching point']};
+  const leg=['A','D','N','K','c','p','r','d','n'].filter(k=>used.has(k)).map(k=>`<span>${L[k][0]}${L[k][1]}</span>`).join('');
+  return `<figure class="fig">${svg}<figcaption>${esc(dg.cap||'')}</figcaption><div class="legend">${leg}</div></figure>`;
+}
+
+/* --- Coach --- */
+function plansView(){
+  if(ui.edit)return planForm();
+  if(ui.plan){const p=S.plans.find(x=>x.id===ui.plan);if(p)return planDetail(p);ui.plan=null}
+  const q=ui.q.toLowerCase();
+  const list=filterPlans();
+  return `<div class="row between"><h2>Session plans <span class="muted" style="font-size:1.1rem">(${S.plans.length})</span></h2><button class="btn small" data-act="new-plan">New plan</button></div>
+  <div class="plansgrid"><aside class="filters"><label for="q" class="small">Search</label><input id="q" type="search" value="${esc(ui.q)}" placeholder="Corners, pressing, rondo\u2026">
+  <div class="chips wrapdesk" role="group" aria-label="Filter by age">${['All',...BANDS].map(b=>`<button class="chip" data-act="band" data-v="${b}" aria-pressed="${ui.band===b}">${b==='All'?'All ages':'Ages '+bandLabel(b)}</button>`).join('')}</div>
+  <div class="chips wrapdesk" role="group" aria-label="Filter by source">${['All',...SOURCES].map(v=>`<button class="chip" data-act="src" data-v="${esc(v)}" aria-pressed="${ui.src===v}">${v==='All'?'All sources':esc(v)}</button>`).join('')}</div>
+  <div class="chips wrapdesk" role="group" aria-label="Filter by theme">${['All',...THEMES].map(t=>`<button class="chip" data-act="theme" data-v="${esc(t)}" aria-pressed="${ui.theme===t}">${esc(t)}</button>`).join('')}</div>
+  <p class="small muted mhide" style="margin-top:16px">Sessions adapted from The FA, US Soccer and CONMEBOL, plus Lobos staff plans. Each one links to its original.</p></aside>
+  <section><div id="planlist">${planList(list)}</div>
+  <p class="small muted dhide" style="margin-top:20px">Sessions adapted from The FA, US Soccer and CONMEBOL, plus Lobos staff plans. Each one links to its original.</p></section></div>`;
+}
+function filterPlans(){const q=ui.q.toLowerCase();
+  return S.plans.filter(p=>(ui.src==='All'||srcOf(p)===ui.src)&&(ui.theme==='All'||p.theme===ui.theme)&&(ui.band==='All'||(p.bands||[]).includes(ui.band))&&(!q||(p.title+' '+p.objective+' '+p.theme+' '+srcOf(p)).toLowerCase().includes(q)))}
+function planList(list){
+  return list.length?list.map(p=>`<button class="plan" data-act="open-plan" data-id="${p.id}"><h3>${esc(p.title)}</h3><span class="meta">${esc(p.theme)}. ${bandsText(p)}. ${esc(p.mins)} min</span><span class="srctag">${esc(srcOf(p))}</span></button>`).join('')
+  :`<p class="muted">No plans match. Try another age or theme, or add one with New plan.</p>`;
+}
+function planDetail(p){
+  const sec=(t,v)=>v?`<h3>${t}</h3><p class="phase">${esc(v)}</p>`:'';
+  return `<div class="detail"><button class="link" data-act="back">Back to plans</button>
+  <h2>${esc(p.title)}</h2><p class="meta">${esc(p.theme)}. ${bandsText(p)}. ${esc(p.mins)} min. Source: ${esc(srcOf(p))}</p>
+  <div class="dsplit"><div class="dtext1">${sec('Objective',p.objective)}${sec('Setup',p.setup)}${sec('Warm-up',p.warmup)}${sec('Main practice',p.main)}</div>
+  <aside class="dvis">${(p.dg||[]).map(svgDiagram).join('')}
+  ${p.points&&p.points.length?`<h3>Coaching points</h3><ol class="kp">${p.points.map(x=>`<li><span>${esc(x)}</span></li>`).join('')}</ol>`:''}</aside>
+  <div class="dtext2">${sec('Game',p.game)}
+  ${sec('Make it easier or harder',p.progress)}
+  ${srcOf(p)==='Lobos staff'
+    ?(p.link?`<h3>Further reading</h3><p><a href="${esc(p.link)}" target="_blank" rel="noopener">${esc(p.link)}</a></p>`:'')
+    :`<h3>Source</h3><p>Adapted from ${esc(SRC_LONG[srcOf(p)]||srcOf(p))}${p.ref?`: <em>${esc(p.ref)}</em>`:''}. Written here in our own words for Lobos coaches. <a href="${esc(p.link)}" target="_blank" rel="noopener">Open the original</a> for the full version.</p>`}</div></div>
+  <div class="row" style="margin-top:22px"><button class="btn ghost small" data-act="edit-plan" data-id="${p.id}">Edit plan</button><button class="btn danger small" data-act="delete-plan" data-id="${p.id}">Delete plan</button></div></div>`;
+}
+function planForm(){
+  const p=ui.edit==='new'?{title:'',theme:THEMES[0],bands:[],mins:60,objective:'',setup:'',warmup:'',main:'',game:'',points:[],progress:'',link:''}:S.plans.find(x=>x.id===ui.edit);
+  const f=(id,l,v,ta)=>`<label for="pf-${id}">${l}</label>${ta?`<textarea id="pf-${id}">${esc(v)}</textarea>`:`<input id="pf-${id}" value="${esc(v)}">`}`;
+  return `<button class="link" data-act="cancel-edit">Cancel</button><h2>${ui.edit==='new'?'New plan':'Edit plan'}</h2>
+  ${f('title','Title',p.title)}
+  <label for="pf-theme">Theme</label><select id="pf-theme">${THEMES.map(t=>`<option ${t===p.theme?'selected':''}>${esc(t)}</option>`).join('')}</select>
+  <label>Ages</label><div class="bands">${BANDS.map(b=>`<label><input type="checkbox" id="pf-b-${b}" ${(p.bands||[]).includes(b)?'checked':''}> ${bandLabel(b)}</label>`).join('')}</div>
+  <div style="width:120px">${f('mins','Minutes',p.mins)}</div>
+  ${f('objective','Objective',p.objective,1)}${f('setup','Setup',p.setup,1)}${f('warmup','Warm-up',p.warmup,1)}${f('main','Main practice',p.main,1)}${f('game','Game',p.game,1)}
+  ${f('points','Coaching points (one per line)',(p.points||[]).join('\n'),1)}${f('progress','Make it easier or harder',p.progress,1)}${f('link','Link to video or source',p.link)}
+  <p class="err" id="err"></p><button class="btn" style="width:100%" data-act="save-plan">Save plan</button>`;
+}
+function teamChips(){
+  if(!ui.team)ui.team=S.teams[0].id;
+  return `<div class="chips" role="group" aria-label="Team">${S.teams.map(t=>`<button class="chip" data-act="team" data-v="${t.id}" aria-pressed="${ui.team===t.id}">${esc(t.name)}</button>`).join('')}</div>`;
+}
+function homeworkView(){
+  const chips=teamChips();
+  const hw=S.homework[ui.team]||[];
+  const unused=S.drills.filter(d=>!hw.some(h=>h.d===d.id));
+  return `<h2>Daily reps</h2><p class="muted small">Players see this list every day until you change it.</p>${chips}
+  <div class="split"><section>${hw.length?'':`<p class="muted">No reps set for this team. Add a drill below.</p>`}
+  ${hw.map((h,i)=>{const d=drill(h.d);return d?`<div class="card"><div class="row between"><h3>${esc(d.name)}</h3><button class="link" data-act="hw-remove" data-i="${i}">Remove</button></div>
+    <label for="hw-${i}" class="small">Target</label><input id="hw-${i}" value="${esc(h.target)}" data-change="hw-target" data-i="${i}"></div>`:''}).join('')}
+  ${unused.length?`<div class="card"><label for="hw-add">Add a drill</label><div class="row"><select id="hw-add" style="flex:1">${unused.map(d=>`<option value="${d.id}">${esc(d.name)}</option>`).join('')}</select><button class="btn small" data-act="hw-add">Add</button></div></div>`:''}
+  </section><section><h3 class="bankh">Drill bank</h3>
+  ${ui.addingDrill?`<div class="card"><label for="nd-name">Drill name</label><input id="nd-name">
+    <label for="nd-how">How to do it</label><textarea id="nd-how"></textarea>
+    <label for="nd-target">Default target</label><input id="nd-target" placeholder="50 each foot">
+    <label for="nd-video">Demo video link (optional)</label><input id="nd-video" placeholder="https://youtube.com/...">
+    <p class="err" id="err"></p><div class="row"><button class="btn small" data-act="drill-save">Save drill</button><button class="link" data-act="drill-cancel">Cancel</button></div></div>`
+  :`<button class="btn ghost small" data-act="drill-new">Add a drill to the bank</button>`}
+  <div class="bank" style="margin-top:10px">${S.drills.map(d=>`<div class="card"><h3>${esc(d.name)}</h3><p class="small muted">${esc(d.how)}</p><p class="small">Default: ${esc(d.target)}${d.video?` <a href="${esc(d.video)}" target="_blank" rel="noopener">Video</a>`:''}</p></div>`).join('')}</div></section></div>`;
+}
+function squadView(){
+  const chips=teamChips();const T=today();const t=team(ui.team);
+  const ps=S.players.filter(p=>p.team===ui.team);
+  const doneToday=ps.filter(p=>dayset(p.id).has(T)).length;
+  return `<h2>Squad</h2>${chips}
+  <div class="split"><section><div class="card"><div class="row between"><strong>${doneToday} of ${ps.length} finished today</strong><span class="small muted">Team code ${esc(t.code)}</span></div>
+  <div class="bar"><b style="width:${ps.length?Math.round(doneToday/ps.length*100):0}%"></b></div></div>
+  <div class="card">${ps.length?ps.map(p=>`<div class="squad"><span><strong>${esc(p.name)}</strong><br><span class="small muted">${streak(p.id)} day streak, ${points(p.id,7)} pts this week</span></span>
+    <span class="dot ${dayset(p.id).has(T)?'on':''}" title="${dayset(p.id).has(T)?'Done today':'Not yet today'}"></span>
+    <button class="link" data-act="player-remove" data-id="${p.id}">Remove</button></div>`).join(''):'<p class="muted">No players yet.</p>'}</div></section>
+  <section><div class="card"><h3>Add a player</h3><p class="small muted">First name and last initial only.</p>
+  <label for="np-name">Name</label><input id="np-name" placeholder="Mateo R.">
+  <label for="np-pin">4-digit PIN</label><input id="np-pin" inputmode="numeric" maxlength="4">
+  <p class="err" id="err"></p><button class="btn small" data-act="player-add">Add player</button></div>
+  <p class="small muted">Testing? <button class="link" data-act="reset-demo">Reset demo data</button></p></section></div>`;
+}
+
+function coachBoardView(){
+  const T=today();
+  const medal=i=>i===0?'\u{1F947}':i===1?'\u{1F948}':i===2?'\u{1F949}':'';
+  const club=ui.boardScope==='club';
+  if(!ui.team)ui.team=S.teams[0].id;
+  const list=S.players.filter(p=>p.team===ui.team).map(p=>({p,w:points(p.id,7),s:streak(p.id),done:dayset(p.id).has(T)})).sort((a,b)=>b.w-a.w||b.s-a.s);
+  const t=team(ui.team);
+  const doneToday=list.filter(r=>r.done).length;
+  const total=list.reduce((n,r)=>n+r.w,0);
+  const all=S.players.map(p=>({p,w:points(p.id,7),s:streak(p.id)})).sort((a,b)=>b.w-a.w||b.s-a.s).slice(0,25);
+  // On phones one panel shows at a time; on desktop both sit side by side.
+  const squadPanel=`<section class="${club?'mhide':''}"><h3 class="mhide">By squad</h3>${teamChips()}
+  <div class="card"><div class="row between"><strong>${esc(t.name)}</strong><span class="small muted">${doneToday} of ${list.length} done today</span></div>
+  <div class="bar"><b style="width:${list.length?Math.round(doneToday/list.length*100):0}%"></b></div>
+  <p class="small muted">${total} points as a squad this week.</p></div>
+  <div class="card">${list.length?list.map((r,i)=>`<div class="lb"><span class="pos">${medal(i)||i+1}</span><span>${esc(r.p.name)}<br><span class="small muted">${r.s} day streak${r.done?', done today':''}</span></span><span class="pts">${r.w}</span></div>`).join(''):'<p class="muted">No players on this squad yet.</p>'}</div></section>`;
+  const clubPanel=`<section class="${club?'':'mhide'}"><h3 class="mhide">Whole club</h3>
+  <p class="muted small">Top 25 across every squad.</p>
+  <div class="card">${all.length?all.map((r,i)=>`<div class="lb"><span class="pos">${medal(i)||i+1}</span><span>${esc(r.p.name)}<br><span class="small muted">${esc(team(r.p.team).name)}, ${r.s} day streak</span></span><span class="pts">${r.w}</span></div>`).join(''):'<p class="muted">No reps logged yet.</p>'}</div></section>`;
+  return `<h2>Leaderboard</h2><p class="muted small">Rolling 7 days. 10 points per drill, 20 bonus for a full day. Players see their own squad's board.</p>
+  <div class="dhide">${boardScopeChips()}</div>
+  <div class="lbgrid">${squadPanel}${clubPanel}</div>`;
+}
+function boardScopeChips(){
+  const cur=ui.boardScope==='club'?'club':'team';
+  return `<div class="chips" role="group" aria-label="Leaderboard view">${[['team','By squad'],['club','Whole club']].map(([v,l])=>`<button class="chip" data-act="board-scope" data-v="${v}" aria-pressed="${cur===v}">${l}</button>`).join('')}</div>`;
+}
+function render(){
+  const app=document.getElementById('app');
+  if(!S.session){app.innerHTML=loginView();return}
+  if(!ui.view)ui.view=S.session.role==='coach'?'plans':'today';
+  const views={today:todayView,board:S.session.role==='coach'?coachBoardView:boardView,badges:badgesView,plans:plansView,homework:homeworkView,squad:squadView};
+  app.innerHTML=header()+nav()+`<main>${views[ui.view]()}</main>`;
+}
+const err=m=>{const e=document.getElementById('err');if(e)e.textContent=m};
+const val=id=>(document.getElementById(id)?.value||'').trim();
+
+/* ===== Actions ===== */
+function act(a,ds){
+  const T=today();
+  switch(a){
+    case 'login-role':ui.loginRole=ds.v;render();break;
+    case 'board-scope':ui.boardScope=ds.v;render();break;
+    case 'login':{
+      const pin=val('lpin');
+      if(ui.loginRole==='coach'){const c=S.coaches.find(x=>x.id===val('lc'));if(!c||c.pin!==pin)return err('That PIN doesn\u2019t match. Try again.');S.session={role:'coach',id:c.id}}
+      else{const p=player(val('lp'));if(!p)return err('Pick your name first.');if(p.pin!==pin)return err('That PIN doesn\u2019t match. Ask your coach if you forgot it.');S.session={role:'player',id:p.id}}
+      ui.view=null;save();render();window.scrollTo(0,0);break;}
+    case 'logout':S.session=null;ui={...ui,view:null,plan:null,edit:null};save();render();break;
+    case 'nav':ui.view=ds.v;ui.plan=null;ui.edit=null;render();window.scrollTo(0,0);break;
+    case 'theme':ui.theme=ds.v;render();break;
+    case 'band':ui.band=ds.v;render();break;
+    case 'src':ui.src=ds.v;render();break;
+    case 'open-plan':ui.plan=ds.id;render();window.scrollTo(0,0);break;
+    case 'back':ui.plan=null;render();break;
+    case 'new-plan':ui.edit='new';render();window.scrollTo(0,0);break;
+    case 'edit-plan':ui.edit=ds.id;render();window.scrollTo(0,0);break;
+    case 'cancel-edit':ui.edit=null;render();break;
+    case 'save-plan':{
+      const title=val('pf-title');if(!title)return err('Add a title to save the plan.');
+      const bands=BANDS.filter(b=>document.getElementById('pf-b-'+b)?.checked);if(!bands.length)return err('Pick at least one age group.');
+      const data={title,theme:val('pf-theme'),bands,mins:parseInt(val('pf-mins'))||60,objective:val('pf-objective'),setup:val('pf-setup'),warmup:val('pf-warmup'),main:val('pf-main'),game:val('pf-game'),points:val('pf-points').split('\n').map(s=>s.trim()).filter(Boolean),progress:val('pf-progress'),link:val('pf-link')};
+      const by=S.coaches.find(c=>c.id===S.session.id).name;
+      if(ui.edit==='new'){const p={id:uid(),by,...data};S.plans.unshift(p);ui.plan=p.id}
+      else{Object.assign(S.plans.find(x=>x.id===ui.edit),data);ui.plan=ui.edit}
+      ui.edit=null;save();render();toast('Plan saved');break;}
+    case 'delete-plan':if(confirm('Delete this plan for all coaches?')){S.plans=S.plans.filter(p=>p.id!==ds.id);ui.plan=null;save();render();toast('Plan deleted')}break;
+    case 'toggle-drill':{
+      const p=player(S.session.id);const hw=S.homework[p.team]||[];
+      const i=S.logs.findIndex(l=>l.p===p.id&&l.d===ds.id&&l.date===T);
+      if(i>=0)S.logs.splice(i,1);else S.logs.push({p:p.id,d:ds.id,date:T});
+      const done=new Set(S.logs.filter(l=>l.p===p.id&&l.date===T).map(l=>l.d));
+      const all=hw.length&&hw.every(h=>done.has(h.d));
+      S.days[p.id]=S.days[p.id]||[];const had=S.days[p.id].includes(T);
+      if(all&&!had){S.days[p.id].push(T);save();render();toast(`All done! ${streak(p.id)} day streak`);}
+      else{if(!all&&had)S.days[p.id]=S.days[p.id].filter(d=>d!==T);save();render();}
+      break;}
+    case 'team':ui.team=ds.v;render();break;
+    case 'hw-add':{const id=val('hw-add');const d=drill(id);if(!d)return;(S.homework[ui.team]=S.homework[ui.team]||[]).push({d:id,target:d.target});save();render();toast('Added to daily reps');break;}
+    case 'hw-remove':S.homework[ui.team].splice(+ds.i,1);save();render();break;
+    case 'drill-new':ui.addingDrill=true;render();break;
+    case 'drill-cancel':ui.addingDrill=false;render();break;
+    case 'drill-save':{const name=val('nd-name');if(!name)return err('Give the drill a name.');
+      S.drills.push({id:uid(),name,how:val('nd-how'),target:val('nd-target')||'Coach sets target',video:val('nd-video')});ui.addingDrill=false;save();render();toast('Drill saved to the bank');break;}
+    case 'player-add':{const name=val('np-name'),pin=val('np-pin');
+      if(!name)return err('Add the player\u2019s name.');if(!/^\d{4}$/.test(pin))return err('PIN must be 4 digits.');
+      S.players.push({id:uid(),team:ui.team,name,pin});S.days[S.players.at(-1).id]=[];save();render();toast(name+' added');break;}
+    case 'player-remove':{const p=player(ds.id);if(p&&confirm(`Remove ${p.name} and their history?`)){S.players=S.players.filter(x=>x.id!==p.id);S.logs=S.logs.filter(l=>l.p!==p.id);delete S.days[p.id];save();render()}break;}
+    case 'reset-demo':if(confirm('Reset all demo data on this device?')){const sess=S.session;S=seed();S.session=sess;save();render();toast('Demo data reset')}break;
+  }
+}
+document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(el){e.preventDefault();act(el.dataset.act,el.dataset)}});
+document.addEventListener('change',e=>{const el=e.target;
+  if(el.dataset.change==='login-team'){ui.loginTeam=el.value;render();}
+  if(el.dataset.change==='hw-target'){S.homework[ui.team][+el.dataset.i].target=el.value.trim();save();toast('Target updated')}});
+document.addEventListener('input',e=>{if(e.target.id==='q'){ui.q=e.target.value;document.getElementById('planlist').innerHTML=planList(filterPlans())}});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='lpin')act('login',{})});
+render();
+</script>
+</body>
+</html>
