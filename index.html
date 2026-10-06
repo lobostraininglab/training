@@ -119,6 +119,19 @@ ol.kp li::before{content:counter(kp);width:22px;height:22px;border-radius:50%;ba
 .bands input{width:auto}
 .toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:12px 18px;border-radius:10px;font-weight:600;z-index:9;max-width:90vw;text-align:center}
 
+/* ===== Live screens ===== */
+.login.wide{max-width:640px}
+.privacy h3{margin-top:0}.privacy p{font-size:.92rem;margin:.5em 0}
+.check{display:flex;gap:10px;align-items:flex-start;margin:14px 0 4px;font-weight:500}
+.check input{width:auto;margin-top:4px}
+.pending h2{margin-top:0}
+.pendq{border-left:4px solid var(--go)}
+.pend{display:grid;grid-template-columns:1fr;gap:8px;padding:10px 0;border-top:1px solid var(--line)}
+.pend:first-of-type{border-top:0}
+@media (min-width:720px){.pend{grid-template-columns:1.2fr 1fr auto;align-items:center}}
+.kidsrow{padding-top:0;padding-bottom:10px}.kids{margin:0}
+#joinlink{flex:1;min-width:0;font-size:.85rem}
+details.card summary{cursor:pointer}
 /* ===== Responsive layouts ===== */
 .srctag{display:inline-block;margin-top:6px;font-size:.78rem;font-weight:600;color:var(--brand);background:var(--go-soft);border-radius:999px;padding:2px 9px}
 .bankh{margin-top:26px}
@@ -171,6 +184,7 @@ ol.kp li::before{content:counter(kp);width:22px;height:22px;border-radius:50%;ba
 </head>
 <body>
 <div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ===== Data layer =====
    Demo mode keeps everything in this browser (localStorage).
@@ -187,7 +201,7 @@ const SRC_LONG={'The FA':'The FA Boot Room','US Soccer':'US Soccer Grassroots (P
 const srcOf=p=>p.src||'Lobos staff';
 const PLAN_SEED_V=2;
 let S;
-let ui={view:null,q:'',theme:'All',band:'All',src:'All',plan:null,edit:null,team:null,loginRole:'player',loginTeam:null,addingDrill:false};
+let ui={view:null,child:null,linkSent:null,q:'',theme:'All',band:'All',src:'All',plan:null,edit:null,team:null,loginRole:'player',loginTeam:null,addingDrill:false};
 
 function uid(){return Math.random().toString(36).slice(2,10)}
 function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
@@ -195,7 +209,7 @@ function today(){return ymd(new Date())}
 function addDays(s,n){const [y,m,d]=s.split('-').map(Number);return ymd(new Date(y,m-1,d+n))}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function load(){try{return JSON.parse(localStorage.getItem(KEY))}catch(e){return null}}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+
 
 function seed(){
 
@@ -736,16 +750,6 @@ function seed(){
     players,plans,drills,homework,logs,days,session:null,planSeedV:PLAN_SEED_V};
 }
 
-S=load()||seed();
-(function migratePlans(){
-  if((S.planSeedV||1)>=PLAN_SEED_V)return;
-  const fresh=seed().plans,byTitle=new Map(S.plans.map(p=>[p.title,p]));
-  for(const f of fresh){const ex=byTitle.get(f.title);
-    if(!ex)S.plans.push(f);else if(!ex.src){ex.src=f.src;if(f.ref)ex.ref=f.ref;if(f.src!=='Lobos staff')ex.link=f.link}}
-  S.planSeedV=PLAN_SEED_V;
-})();
-save();
-
 /* ===== Scoring ===== */
 const player=id=>S.players.find(p=>p.id===id);
 const drill=id=>S.drills.find(d=>d.id===id);
@@ -768,45 +772,9 @@ const BADGES=[
 /* ===== Views ===== */
 function toast(msg){const t=document.createElement('div');t.className='toast';t.setAttribute('role','status');t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2600)}
 
-function loginView(){
-  const r=ui.loginRole;
-  // Default to a team that actually has players (demo data lives on U10 Boys).
-  const tId=ui.loginTeam||(S.teams.find(t=>S.players.some(p=>p.team===t.id))||S.teams[0]).id;
-  let fields;
-  if(r==='player'){
-    fields=`<label for="lt">Team</label><select id="lt" data-change="login-team">${S.teams.map(t=>`<option value="${t.id}" ${t.id===tId?'selected':''}>${esc(t.name)}</option>`).join('')}</select>
-    <label for="lp">Your name</label><select id="lp">${S.players.filter(p=>p.team===tId).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select>`;
-  }else{
-    fields=`<label for="lc">Coach</label><select id="lc">${S.coaches.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>`;
-  }
-  return `<div class="login">
-    <h1 class="wordmark">Lobos<span>Training Lab</span></h1>
-    <p class="muted">Session plans for coaches. Daily reps for players.</p>
-    <div class="seg" role="group" aria-label="Sign in as">
-      <button data-act="login-role" data-v="player" aria-pressed="${r==='player'}">Player</button>
-      <button data-act="login-role" data-v="coach" aria-pressed="${r==='coach'}">Coach</button>
-    </div>
-    ${fields}
-    <label for="lpin">PIN</label><input id="lpin" type="password" inputmode="numeric" maxlength="6" autocomplete="off">
-    <p class="err" id="err"></p>
-    <button class="btn" style="width:100%" data-act="login">Sign in</button>
-    <div class="hint"><strong>Demo mode.</strong> Coaches: Jason, Tori or Ciri with PIN 1234. Players: any name with PIN 0000. Data stays on this device until we connect the club database.</div>
-  </div>`;
-}
-
-function header(){
-  const s=S.session;
-  const sub=s.role==='coach'?'Coach '+esc(S.coaches.find(c=>c.id===s.id).name):esc(player(s.id).name)+', '+esc(team(player(s.id).team).name);
-  return `<header class="top"><div class="wrap"><div><h1>Lobos Training Lab</h1><p class="sub">${sub}</p></div><button class="link" data-act="logout">Sign out</button></div></header>`;
-}
-function nav(){
-  const tabs=S.session.role==='coach'?[['plans','Plans'],['homework','Homework'],['squad','Squad'],['board','Leaderboard']]:[['today','Today'],['board','Leaderboard'],['badges','Badges']];
-  return `<nav class="tabs" aria-label="Sections"><div class="wrap">${tabs.map(([v,l])=>`<button data-act="nav" data-v="${v}" ${ui.view===v?'aria-current="page"':''}>${l}</button>`).join('')}</div></nav>`;
-}
-
 /* --- Player --- */
 function todayView(){
-  const p=player(S.session.id),T=today();
+  const p=player(ui.child),T=today();if(!p)return pendingView(S.children.find(c=>c.id===ui.child));
   const hw=S.homework[p.team]||[];
   const done=new Set(S.logs.filter(l=>l.p===p.id&&l.date===T).map(l=>l.d));
   const n=hw.filter(h=>done.has(h.d)).length;
@@ -824,14 +792,8 @@ function todayView(){
       return `<div class="card drill ${ok?'done':''}"><div><h3>${esc(d.name)}</h3><p class="target">${esc(h.target)}</p><p class="small muted">${esc(d.how)}</p>${d.video?`<p class="small"><a href="${esc(d.video)}" target="_blank" rel="noopener">Watch the demo</a></p>`:''}</div>
       <button class="btn ${ok?'ghost':'go'} small tick" data-act="toggle-drill" data-id="${h.d}" aria-pressed="${ok}">${ok?'Undo':'Done'}</button></div>`}).join('')}</div></section></div>`;
 }
-function boardView(){
-  const me=player(S.session.id);
-  const list=S.players.filter(p=>p.team===me.team).map(p=>({p,w:points(p.id,7),s:streak(p.id)})).sort((a,b)=>b.w-a.w);
-  return `<h2>${esc(team(me.team).name)} this week</h2><p class="muted small">10 points per drill, 20 bonus for finishing a full day. Resets on a rolling 7 days.</p>
-  <div class="card">${list.map((r,i)=>`<div class="lb ${r.p.id===me.id?'me':''}"><span class="pos">${i+1}</span><span>${esc(r.p.name)}${r.p.id===me.id?' (you)':''}<br><span class="small muted">${r.s} day streak</span></span><span class="pts">${r.w}</span></div>`).join('')}</div>`;
-}
 function badgesView(){
-  const pid=S.session.id;
+  const pid=ui.child;if(!player(pid))return pendingView(S.children.find(c=>c.id===pid));
   return `<h2>Badges</h2><p class="muted small">${points(pid)} total points. Best streak: ${bestStreak(pid)} days.</p>
   <div class="badges">${BADGES.map(b=>{const got=b.test(pid);return `<div class="card badge ${got?'got':''}"><div class="medal" aria-hidden="true">${b.icon}</div><div><h3>${b.name}</h3><p class="small muted">${got?'Earned. ':''}${b.desc}</p></div></div>`}).join('')}</div>`;
 }
@@ -946,22 +908,6 @@ function homeworkView(){
   :`<button class="btn ghost small" data-act="drill-new">Add a drill to the bank</button>`}
   <div class="bank" style="margin-top:10px">${S.drills.map(d=>`<div class="card"><h3>${esc(d.name)}</h3><p class="small muted">${esc(d.how)}</p><p class="small">Default: ${esc(d.target)}${d.video?` <a href="${esc(d.video)}" target="_blank" rel="noopener">Video</a>`:''}</p></div>`).join('')}</div></section></div>`;
 }
-function squadView(){
-  const chips=teamChips();const T=today();const t=team(ui.team);
-  const ps=S.players.filter(p=>p.team===ui.team);
-  const doneToday=ps.filter(p=>dayset(p.id).has(T)).length;
-  return `<h2>Squad</h2>${chips}
-  <div class="split"><section><div class="card"><div class="row between"><strong>${doneToday} of ${ps.length} finished today</strong><span class="small muted">Team code ${esc(t.code)}</span></div>
-  <div class="bar"><b style="width:${ps.length?Math.round(doneToday/ps.length*100):0}%"></b></div></div>
-  <div class="card">${ps.length?ps.map(p=>`<div class="squad"><span><strong>${esc(p.name)}</strong><br><span class="small muted">${streak(p.id)} day streak, ${points(p.id,7)} pts this week</span></span>
-    <span class="dot ${dayset(p.id).has(T)?'on':''}" title="${dayset(p.id).has(T)?'Done today':'Not yet today'}"></span>
-    <button class="link" data-act="player-remove" data-id="${p.id}">Remove</button></div>`).join(''):'<p class="muted">No players yet.</p>'}</div></section>
-  <section><div class="card"><h3>Add a player</h3><p class="small muted">First name and last initial only.</p>
-  <label for="np-name">Name</label><input id="np-name" placeholder="Mateo R.">
-  <label for="np-pin">4-digit PIN</label><input id="np-pin" inputmode="numeric" maxlength="4">
-  <p class="err" id="err"></p><button class="btn small" data-act="player-add">Add player</button></div>
-  <p class="small muted">Testing? <button class="link" data-act="reset-demo">Reset demo data</button></p></section></div>`;
-}
 
 function coachBoardView(){
   const T=today();
@@ -990,29 +936,252 @@ function boardScopeChips(){
   const cur=ui.boardScope==='club'?'club':'team';
   return `<div class="chips" role="group" aria-label="Leaderboard view">${[['team','By squad'],['club','Whole club']].map(([v,l])=>`<button class="chip" data-act="board-scope" data-v="${v}" aria-pressed="${cur===v}">${l}</button>`).join('')}</div>`;
 }
+/* ===== Live mode: Supabase ===== */
+const SUPA_URL='https://cxjntvglamnsotffrkho.supabase.co';
+const SUPA_KEY='sb_publishable_C4ymgpAUj6PuYlIksPpxnQ_6mfrOR3R'; // publishable key: safe to ship in the page
+const sb=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{flowType:'implicit',persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}):null;
+const STARTER=seed();
+const TEAM_ORDER=STARTER.teams.map(t=>t.id);
+S={teams:[],coaches:[],plans:[],drills:[],homework:{},players:[],pending:[],invites:[],logs:[],days:{},board:[],children:[],guardian:null,session:null};
+let BOOT={state:'loading',msg:''};
+const JOIN_KEY='lobos-join';
+(function(){const j=new URLSearchParams(location.search).get('join');if(j){try{localStorage.setItem(JOIN_KEY,j.toUpperCase().trim())}catch(e){}}})();
+function joinCode(){try{return localStorage.getItem(JOIN_KEY)||''}catch(e){return ''}}
+function clearJoin(){try{localStorage.removeItem(JOIN_KEY)}catch(e){}}
+function save(){} // data now lives in the club database
+
+const PRIVACY_HTML=`<h3>Privacy note for parents and guardians</h3>
+<p>Lobos Training Lab is a private training app for Bayou City Lobos families.</p>
+<p><strong>Who holds the account.</strong> A parent or guardian creates the account and signs in with their own email. Children do not sign up themselves.</p>
+<p><strong>What we store about your child.</strong> First name and last initial, their team, and which training reps they complete. Nothing else: no date of birth or age, photo, school, address, phone number, email, or location.</p>
+<p><strong>What we store about you.</strong> Your email address, used only to sign you in.</p>
+<p><strong>Who can see it.</strong> Club coaching staff see your child\u2019s name, team and training activity. Families on the same team see first name, last initial and points on the team leaderboard. Nothing is sold or shared outside the club.</p>
+<p><strong>Approval.</strong> A new player only appears on a roster once a club coach approves them.</p>
+<p><strong>Older players.</strong> At the club\u2019s discretion, players 13 and over may get their own login. You keep full access and can turn it off at any time.</p>
+<p><strong>Your choices.</strong> You can correct your child\u2019s name or remove them at any time from the Family tab, which deletes their training records. To delete your whole account, contact the club.</p>`;
+
+async function all(build){let out=[],from=0;for(;;){const {data,error}=await build().range(from,from+999);if(error)throw error;out=out.concat(data||[]);if(!data||data.length<1000)break;from+=1000}return out}
+function chk(r){if(r&&r.error)throw r.error;return r?r.data:null}
+function friendly(e){const m=String((e&&(e.message||e.error_description))||e||'');
+  if(/rate limit|too many|429/i.test(m))return 'Too many sign-in emails were sent recently. Wait a few minutes and try again.';
+  if(/fetch|network|load failed/i.test(m))return 'Can\u2019t reach the club database. Check your connection and try again.';
+  if(/not authorized|permission|row-level|violates/i.test(m))return 'You don\u2019t have permission to do that.';
+  if(/only an approver/i.test(m))return 'Only the head approver can approve or remove players.';
+  return m||'Something went wrong. Please try again.'}
+const mapPlayer=r=>({id:r.id,team:r.team_id,req:r.requested_team_id||r.team_id,name:r.display_name,status:r.status});
+const mapDrill=r=>({id:r.id,name:r.name,how:r.how||'',target:r.default_target||'',video:r.video_url||''});
+function mapPlan(r){const c=S.coaches.find(c=>c.id===r.created_by);return {id:r.id,title:r.title,theme:r.theme,bands:r.age_bands||[],mins:r.minutes||60,objective:r.objective||'',setup:r.setup||'',warmup:r.warmup||'',main:r.main||'',game:r.game||'',points:r.coaching_points||[],progress:r.progressions||'',link:r.link||'',src:r.src||'Lobos staff',ref:r.ref||'',dg:r.diagrams||[],by:c?c.name:'',updated:r.updated_at||''}}
+function planRow(p){return {title:p.title,theme:p.theme,age_bands:p.bands||[],minutes:p.mins||60,objective:p.objective,setup:p.setup,warmup:p.warmup,main:p.main,game:p.game,coaching_points:p.points||[],progressions:p.progress,link:p.link||null,src:p.src||'Lobos staff',ref:p.ref||null,diagrams:p.dg||[]}}
+function setLogs(rows){S.logs=rows.map(l=>({p:l.player_id,d:l.drill_id,date:l.day}))}
+function setDays(rows){S.days={};rows.forEach(r=>(S.days[r.player_id]=S.days[r.player_id]||[]).push(r.day))}
+function setHomework(rows){S.homework={};rows.forEach(r=>(S.homework[r.team_id]=S.homework[r.team_id]||[]).push({d:r.drill_id,target:r.target||'',pos:r.position||0}))}
+
+let loadingUid=null;
+async function boot(){
+  if(!sb){BOOT={state:'error',msg:'The sign-in service didn\u2019t load. Check your connection and refresh the page.'};return render()}
+  try{const {data}=await sb.auth.getSession();
+    if(data&&data.session)await loadForUser(data.session.user);else{BOOT.state='ready';render()}}
+  catch(e){BOOT={state:'error',msg:friendly(e)};render()}
+}
+if(sb)sb.auth.onAuthStateChange((ev,session)=>{
+  if(ev==='SIGNED_IN'&&session&&(!S.session||S.session.uid!==session.user.id))setTimeout(()=>loadForUser(session.user),0);
+  if(ev==='SIGNED_OUT'){resetState();BOOT.state='ready';render()}
+});
+function resetState(){S={teams:[],coaches:[],plans:[],drills:[],homework:{},players:[],pending:[],invites:[],logs:[],days:{},board:[],children:[],guardian:null,session:null};ui={...ui,view:null,plan:null,edit:null,child:null,linkSent:null}}
+
+async function loadForUser(user){
+  if(loadingUid===user.id)return;loadingUid=user.id;
+  BOOT.state='loading';render();
+  try{
+    const isCoach=chk(await sb.rpc('claim_coach'));
+    const teams=await all(()=>sb.from('teams').select('id,name,code'));
+    S.teams=teams.sort((a,b)=>TEAM_ORDER.indexOf(a.id)-TEAM_ORDER.indexOf(b.id));
+    S.drills=(await all(()=>sb.from('drills').select('*').order('name'))).map(mapDrill);
+    if(isCoach){
+      S.coaches=await all(()=>sb.from('coaches').select('id,name,is_approver'));
+      const me=S.coaches.find(c=>c.id===user.id)||{name:'Coach',is_approver:false};
+      S.session={role:'coach',uid:user.id,name:me.name,approver:!!me.is_approver,email:user.email};
+      await loadCoachData();
+    }else{
+      S.session={role:'guardian',uid:user.id,email:user.email};
+      S.guardian=chk(await sb.from('guardians').select('id,consent_at').eq('id',user.id).maybeSingle());
+      if(S.guardian)await loadFamily();
+    }
+    BOOT.state='ready';
+  }catch(e){console.error(e);BOOT={state:'error',msg:friendly(e)}}
+  loadingUid=null;render();
+}
+async function loadCoachData(){
+  const [plans,hw,players,logs,days,invites]=await Promise.all([
+    all(()=>sb.from('plans').select('*')),
+    all(()=>sb.from('homework').select('*').order('position')),
+    all(()=>sb.from('players').select('id,team_id,requested_team_id,display_name,status,created_at').order('created_at')),
+    all(()=>sb.from('rep_logs').select('player_id,drill_id,day').gte('day',addDays(today(),-35))),
+    all(()=>sb.from('complete_days').select('player_id,day')),
+    S.session.approver?all(()=>sb.from('coach_invites').select('email,name,is_approver')):Promise.resolve([])
+  ]);
+  S.plans=plans.map(mapPlan).sort((a,b)=>(b.updated||'').localeCompare(a.updated||'')||a.title.localeCompare(b.title));
+  setHomework(hw);
+  const ps=players.map(mapPlayer);
+  S.players=ps.filter(p=>p.status==='active');S.pending=ps.filter(p=>p.status==='pending');
+  setLogs(logs);setDays(days);S.invites=invites;
+}
+async function loadFamily(){
+  const kids=await all(()=>sb.from('players').select('id,team_id,requested_team_id,display_name,status,created_at').eq('guardian_id',S.session.uid).order('created_at'));
+  S.children=kids.map(mapPlayer).filter(c=>c.status!=='removed');
+  if(!ui.child||!S.children.some(c=>c.id===ui.child))ui.child=((S.children.find(c=>c.status==='active')||S.children[0])||{}).id||null;
+  const active=S.children.filter(c=>c.status==='active');S.players=active;
+  const ids=active.map(c=>c.id),teams=[...new Set(active.map(c=>c.team))];
+  const [hw,logs,days]=await Promise.all([
+    teams.length?all(()=>sb.from('homework').select('*').in('team_id',teams).order('position')):Promise.resolve([]),
+    ids.length?all(()=>sb.from('rep_logs').select('player_id,drill_id,day').in('player_id',ids)):Promise.resolve([]),
+    ids.length?all(()=>sb.from('complete_days').select('player_id,day').in('player_id',ids)):Promise.resolve([])
+  ]);
+  setHomework(hw);setLogs(logs);setDays(days);
+  await loadBoard();
+}
+async function loadBoard(){
+  const c=S.children.find(c=>c.id===ui.child);
+  if(!c||c.status!=='active'){S.board=[];return}
+  S.board=chk(await sb.rpc('team_leaderboard',{p_team:c.team}))||[];
+}
+
+/* ===== Live views ===== */
+const WORDMARK=`<h1 class="wordmark">Lobos<span>Training Lab</span></h1>`;
+function loginView(){
+  const j=joinCode();
+  if(ui.linkSent)return `<div class="login">${WORDMARK}<h2>Check your email</h2>
+    <p>We sent a sign-in link to <strong>${esc(ui.linkSent)}</strong>. Open it on this phone or computer to sign in. It can take a minute, so check your spam folder too.</p>
+    <button class="link" data-act="link-again">Use a different email</button></div>`;
+  return `<div class="login">${WORDMARK}
+    <p class="muted">Session plans for coaches. Daily reps for players.</p>
+    ${j?`<div class="hint">Joining with team code <strong>${esc(j)}</strong>. Sign in with your own email, then add your player.</div>`:''}
+    <label for="lemail">Email</label><input id="lemail" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com">
+    <p class="err" id="err"></p>
+    <button class="btn" style="width:100%" data-act="send-link">Email me a sign-in link</button>
+    <p class="small muted" style="margin-top:14px">No password needed. Parents and guardians sign in here on behalf of their player. Coaches use the email the club invited.</p>
+  </div>`;
+}
+function consentView(){
+  return `<div class="login wide">${WORDMARK}<h2>Before you add your player</h2>
+    <div class="card privacy">${PRIVACY_HTML}</div>
+    <label class="check"><input type="checkbox" id="consent"> I am the parent or legal guardian, and I agree to the privacy note above.</label>
+    <p class="err" id="err"></p><button class="btn" style="width:100%" data-act="consent">Continue</button>
+    <p class="small muted">Signed in as ${esc(S.session.email)}. <button class="link" data-act="logout">Sign out</button></p></div>`;
+}
+function childForm(){
+  const j=joinCode(),pre=(S.teams.find(t=>t.code===j)||{}).id||'';
+  return `<label for="ch-name">Player\u2019s first name and last initial</label><input id="ch-name" placeholder="Mateo R." maxlength="32" autocomplete="off">
+    <label for="ch-team">Team</label><select id="ch-team"><option value="">Choose a team</option>${S.teams.map(t=>`<option value="${t.id}" ${t.id===pre?'selected':''}>${esc(t.name)}</option>`).join('')}</select>
+    <p class="err" id="err"></p><button class="btn" style="width:100%" data-act="add-child">Add player</button>`;
+}
+function firstChildView(){
+  return `<div class="login">${WORDMARK}<h2>Add your player</h2>
+    <p class="muted small">Use first name and last initial only. A coach approves every new player before they appear on the team.</p>
+    ${childForm()}
+    <p class="small muted" style="margin-top:14px">Signed in as ${esc(S.session.email)}. <button class="link" data-act="logout">Sign out</button></p></div>`;
+}
+function pendingView(c){
+  if(!c)return `<div class="card"><p>Add a player from the Family tab to get started.</p></div>`;
+  return `<div class="card pending"><h2>Waiting for approval</h2>
+    <p><strong>${esc(c.name)}</strong> has been sent to the club for <strong>${esc((team(c.req)||{}).name||'their team')}</strong>. A coach will approve them soon, and then their daily reps will appear here.</p>
+    <p class="small muted">Nothing else to do for now. Check back later.</p></div>`;
+}
+function familyView(){
+  return `<h2>Family</h2><div class="split"><section>
+    <div class="card">${S.children.map(c=>`<div class="squad"><span><strong>${esc(c.name)}</strong><br><span class="small muted">${esc((team(c.status==='active'?c.team:c.req)||{}).name||'')}${c.status==='pending'?', waiting for approval':''}</span></span>
+      <span></span><button class="link" data-act="child-remove" data-id="${c.id}">Remove</button></div>`).join('')}</div>
+    <div class="card"><h3>Add another player</h3>${childForm()}</div></section>
+    <section><details class="card"><summary><strong>Privacy note</strong></summary><div class="privacy">${PRIVACY_HTML}</div></details>
+    <p class="small muted">Signed in as ${esc(S.session.email)}.</p></section></div>`;
+}
+function boardView(){
+  const me=player(ui.child);if(!me)return pendingView(S.children.find(c=>c.id===ui.child));
+  const rows=S.board||[];
+  return `<h2>${esc(team(me.team).name)} this week</h2><p class="muted small">10 points per drill, 20 bonus for finishing a full day. Resets on a rolling 7 days.</p>
+  <div class="card">${rows.length?rows.map((r,i)=>`<div class="lb ${r.player_id===me.id?'me':''}"><span class="pos">${i+1}</span><span>${esc(r.display_name)}${r.player_id===me.id?' (you)':''}<br><span class="small muted">${r.days_7} full ${r.days_7===1?'day':'days'} this week</span></span><span class="pts">${r.points_7}</span></div>`).join(''):'<p class="muted">No reps logged yet this week. Be the first.</p>'}</div>`;
+}
+function starterView(){
+  return `<h2>Session plans</h2><div class="card"><h3>Set up the library</h3>
+    <p>The club database is empty. Load the 50 starter sessions (FA, US Soccer, CONMEBOL and Lobos staff plans) and the drill bank. You only need to do this once.</p>
+    <p class="err" id="err"></p><button class="btn" data-act="load-starter">Load starter sessions and drills</button></div>`;
+}
+function squadView(){
+  const chips=teamChips();const T=today();const t=team(ui.team);const ap=S.session.approver;
+  const ps=S.players.filter(p=>p.team===ui.team);
+  const doneToday=ps.filter(p=>dayset(p.id).has(T)).length;
+  const link=location.origin+location.pathname+'?join='+encodeURIComponent(t.code);
+  const pend=S.pending.length?`<div class="card pendq"><h3>Waiting for approval (${S.pending.length})</h3>
+    ${S.pending.map(p=>`<div class="pend"><span><strong>${esc(p.name)}</strong><br><span class="small muted">Requested ${esc((team(p.req)||{}).name||'')}</span></span>
+      ${ap?`<select id="ap-${p.id}" aria-label="Team for ${esc(p.name)}">${S.teams.map(x=>`<option value="${x.id}" ${x.id===p.req?'selected':''}>${esc(x.name)}</option>`).join('')}</select>
+      <span class="row"><button class="btn small go" data-act="approve" data-id="${p.id}">Approve</button><button class="link" data-act="decline" data-id="${p.id}">Decline</button></span>`
+      :`<span class="small muted">Jason approves new players</span>`}</div>`).join('')}</div>`:'';
+  return `<h2>Squad</h2>${pend}${chips}
+  <div class="split"><section><div class="card"><div class="row between"><strong>${doneToday} of ${ps.length} finished today</strong><span class="small muted">Team code ${esc(t.code)}</span></div>
+  <div class="bar"><b style="width:${ps.length?Math.round(doneToday/ps.length*100):0}%"></b></div></div>
+  <div class="card">${ps.length?ps.map(p=>`<div class="squad"><span><strong>${esc(p.name)}</strong><br><span class="small muted">${streak(p.id)} day streak, ${points(p.id,7)} pts this week</span></span>
+    <span class="dot ${dayset(p.id).has(T)?'on':''}" title="${dayset(p.id).has(T)?'Done today':'Not yet today'}"></span>
+    ${ap?`<button class="link" data-act="player-remove" data-id="${p.id}">Remove</button>`:'<span></span>'}</div>`).join(''):'<p class="muted">No players yet. Share the join link with parents.</p>'}</div></section>
+  <section><div class="card"><h3>Join link for ${esc(t.name)}</h3><p class="small muted">Send this to parents. They sign in, add their player, and the request appears above for approval.</p>
+    <div class="row"><input readonly value="${esc(link)}" id="joinlink" aria-label="Join link"><button class="btn small" data-act="copy-link">Copy</button></div></div>
+  ${ap?coachesCard():''}</section></div>`;
+}
+function coachesCard(){
+  return `<div class="card"><h3>Coaches</h3>
+    ${S.coaches.map(c=>`<div class="squad"><span><strong>${esc(c.name)}</strong><br><span class="small muted">${c.is_approver?'Approver':'Coach'}</span></span><span></span><span></span></div>`).join('')}
+    ${S.invites.map(i=>`<div class="squad"><span><strong>${esc(i.name)}</strong><br><span class="small muted">Invited: ${esc(i.email)}</span></span><span></span><button class="link" data-act="invite-remove" data-email="${esc(i.email)}">Cancel</button></div>`).join('')}
+    <h3 style="margin-top:14px">Invite a coach</h3><p class="small muted">They become a coach the first time they sign in with this email.</p>
+    <label for="inv-name">Name</label><input id="inv-name" placeholder="Tori">
+    <label for="inv-email">Email</label><input id="inv-email" type="email" placeholder="coach@example.com">
+    <p class="err" id="err-inv"></p><button class="btn small" data-act="invite">Send invite</button></div>`;
+}
+
+function header(){
+  const s=S.session;let sub='',sw='';
+  if(s.role==='coach')sub='Coach '+esc(s.name);
+  else{const c=S.children.find(c=>c.id===ui.child);sub=c?esc(c.name)+', '+esc((team(c.status==='active'?c.team:c.req)||{}).name||''):esc(s.email);
+    if(S.children.length>1)sw=`<div class="chips kids" role="group" aria-label="Player">${S.children.map(c=>`<button class="chip" data-act="child" data-v="${c.id}" aria-pressed="${c.id===ui.child}">${esc(c.name)}</button>`).join('')}</div>`}
+  return `<header class="top"><div class="wrap"><div><h1>Lobos Training Lab</h1><p class="sub">${sub}</p></div><button class="link" data-act="logout">Sign out</button></div>${sw?`<div class="wrap kidsrow">${sw}</div>`:''}</header>`;
+}
+function nav(){
+  const tabs=S.session.role==='coach'?[['plans','Plans'],['homework','Homework'],['squad','Squad'+(S.pending.length?` (${S.pending.length})`:'')],['board','Leaderboard']]:[['today','Today'],['board','Leaderboard'],['badges','Badges'],['family','Family']];
+  return `<nav class="tabs" aria-label="Sections"><div class="wrap">${tabs.map(([v,l])=>`<button data-act="nav" data-v="${v}" ${ui.view===v?'aria-current="page"':''}>${l}</button>`).join('')}</div></nav>`;
+}
 function render(){
   const app=document.getElementById('app');
+  if(BOOT.state==='loading'){app.innerHTML=`<div class="login">${WORDMARK}<p class="muted">Loading\u2026</p></div>`;return}
+  if(BOOT.state==='error'){app.innerHTML=`<div class="login">${WORDMARK}<p class="err">${esc(BOOT.msg)}</p><button class="btn" data-act="retry">Try again</button> <button class="link" data-act="logout">Sign out</button></div>`;return}
   if(!S.session){app.innerHTML=loginView();return}
-  if(!ui.view)ui.view=S.session.role==='coach'?'plans':'today';
-  const views={today:todayView,board:S.session.role==='coach'?coachBoardView:boardView,badges:badgesView,plans:plansView,homework:homeworkView,squad:squadView};
-  app.innerHTML=header()+nav()+`<main>${views[ui.view]()}</main>`;
+  const coach=S.session.role==='coach';
+  if(!coach){if(!S.guardian){app.innerHTML=consentView();return}if(!S.children.length){app.innerHTML=firstChildView();return}}
+  const views=coach?{plans:plansView,homework:homeworkView,squad:squadView,board:coachBoardView}:{today:todayView,board:boardView,badges:badgesView,family:familyView};
+  if(!views[ui.view])ui.view=Object.keys(views)[0];
+  let body=null;
+  if(coach&&ui.view==='plans'&&!S.plans.length&&!ui.edit)body=starterView();
+  if(!coach&&ui.view!=='family'){const c=S.children.find(c=>c.id===ui.child);if(!c||c.status!=='active')body=pendingView(c)}
+  app.innerHTML=header()+nav()+`<main>${body||views[ui.view]()}</main>`;
 }
-const err=m=>{const e=document.getElementById('err');if(e)e.textContent=m};
+const err=(m,id='err')=>{const e=document.getElementById(id);if(e)e.textContent=m};
 const val=id=>(document.getElementById(id)?.value||'').trim();
+function cleanName(n){const parts=n.replace(/\s+/g,' ').trim().split(' ');if(parts.length<2)return null;
+  const first=parts.slice(0,-1).join(' '),last=parts.at(-1).replace(/\./g,'').charAt(0); // full surname -> initial only
+  if(!/^[\p{L}' -]{1,20}$/u.test(first)||!/^\p{L}$/u.test(last))return null;
+  return first.charAt(0).toUpperCase()+first.slice(1)+' '+last.toUpperCase()+'.'}
 
 /* ===== Actions ===== */
-function act(a,ds){
+let busy=false;
+async function act(a,ds){
   const T=today();
-  switch(a){
-    case 'login-role':ui.loginRole=ds.v;render();break;
-    case 'board-scope':ui.boardScope=ds.v;render();break;
-    case 'login':{
-      const pin=val('lpin');
-      if(ui.loginRole==='coach'){const c=S.coaches.find(x=>x.id===val('lc'));if(!c||c.pin!==pin)return err('That PIN doesn\u2019t match. Try again.');S.session={role:'coach',id:c.id}}
-      else{const p=player(val('lp'));if(!p)return err('Pick your name first.');if(p.pin!==pin)return err('That PIN doesn\u2019t match. Ask your coach if you forgot it.');S.session={role:'player',id:p.id}}
-      ui.view=null;save();render();window.scrollTo(0,0);break;}
-    case 'logout':S.session=null;ui={...ui,view:null,plan:null,edit:null};save();render();break;
+  try{switch(a){
+    case 'retry':if(sb){const {data}=await sb.auth.getSession();if(data&&data.session){loadingUid=null;await loadForUser(data.session.user)}else{BOOT.state='ready';render()}}else location.reload();break;
+    case 'send-link':{const email=val('lemail').toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return err('Enter a valid email address.');
+      if(busy)return;busy=true;err('Sending\u2026');
+      try{const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname,shouldCreateUser:true}});if(error)throw error;ui.linkSent=email;render()}
+      catch(e){err(friendly(e))}finally{busy=false}break;}
+    case 'link-again':ui.linkSent=null;render();break;
+    case 'logout':await sb.auth.signOut();resetState();BOOT.state='ready';render();break;
     case 'nav':ui.view=ds.v;ui.plan=null;ui.edit=null;render();window.scrollTo(0,0);break;
+    case 'board-scope':ui.boardScope=ds.v;render();break;
     case 'theme':ui.theme=ds.v;render();break;
     case 'band':ui.band=ds.v;render();break;
     case 'src':ui.src=ds.v;render();break;
@@ -1021,46 +1190,79 @@ function act(a,ds){
     case 'new-plan':ui.edit='new';render();window.scrollTo(0,0);break;
     case 'edit-plan':ui.edit=ds.id;render();window.scrollTo(0,0);break;
     case 'cancel-edit':ui.edit=null;render();break;
+    case 'team':ui.team=ds.v;render();break;
+
+    /* guardian */
+    case 'consent':{if(!document.getElementById('consent')?.checked)return err('Please tick the box to agree before continuing.');
+      S.guardian=chk(await sb.from('guardians').insert({id:S.session.uid,consent_at:new Date().toISOString()}).select().single());render();break;}
+    case 'add-child':{const name=cleanName(val('ch-name')),t=val('ch-team');
+      if(!name)return err('Enter first name and last initial, like Mateo R.');if(!t)return err('Choose a team.');
+      if(busy)return;busy=true;
+      try{chk(await sb.from('players').insert({guardian_id:S.session.uid,team_id:t,requested_team_id:t,display_name:name}));clearJoin();
+        await loadFamily();const n=S.children.at(-1);if(n)ui.child=n.id;ui.view='today';render();toast(name+' added. Waiting for coach approval.')}finally{busy=false}break;}
+    case 'child':ui.child=ds.v;await loadBoard();render();break;
+    case 'child-remove':{const c=S.children.find(c=>c.id===ds.id);if(!c||!confirm(`Remove ${c.name}? This deletes their training history and can\u2019t be undone.`))return;
+      chk(await sb.from('players').delete().eq('id',c.id));if(ui.child===c.id)ui.child=null;await loadFamily();render();toast(c.name+' removed');break;}
+    case 'toggle-drill':{if(busy)return;busy=true;
+      try{const p=player(ui.child);const hw=S.homework[p.team]||[];
+        const had=S.logs.some(l=>l.p===p.id&&l.d===ds.id&&l.date===T);
+        if(had){chk(await sb.from('rep_logs').delete().match({player_id:p.id,drill_id:ds.id,day:T}));S.logs=S.logs.filter(l=>!(l.p===p.id&&l.d===ds.id&&l.date===T))}
+        else{chk(await sb.from('rep_logs').upsert({player_id:p.id,drill_id:ds.id,day:T},{onConflict:'player_id,drill_id,day',ignoreDuplicates:true}));S.logs.push({p:p.id,d:ds.id,date:T})}
+        const done=new Set(S.logs.filter(l=>l.p===p.id&&l.date===T).map(l=>l.d));
+        const full=hw.length>0&&hw.every(h=>done.has(h.d));S.days[p.id]=S.days[p.id]||[];const dayHad=S.days[p.id].includes(T);
+        if(full&&!dayHad){chk(await sb.from('complete_days').upsert({player_id:p.id,day:T},{onConflict:'player_id,day',ignoreDuplicates:true}));S.days[p.id].push(T)}
+        if(!full&&dayHad){chk(await sb.from('complete_days').delete().match({player_id:p.id,day:T}));S.days[p.id]=S.days[p.id].filter(d=>d!==T)}
+        await loadBoard();render();if(full&&!dayHad)toast(`All done! ${streak(p.id)} day streak`);
+      }finally{busy=false}break;}
+
+    /* coach */
+    case 'load-starter':{if(busy)return;busy=true;err('Loading\u2026');
+      try{if(!S.drills.length)chk(await sb.from('drills').insert(STARTER.drills.map(d=>({name:d.name,how:d.how,default_target:d.target}))));
+        if(!S.plans.length)chk(await sb.from('plans').insert(STARTER.plans.map(p=>({...planRow(p),created_by:S.session.uid}))));
+        S.drills=(await all(()=>sb.from('drills').select('*').order('name'))).map(mapDrill);await loadCoachData();render();toast('Library loaded: '+S.plans.length+' sessions')}
+      catch(e){err(friendly(e))}finally{busy=false}break;}
     case 'save-plan':{
       const title=val('pf-title');if(!title)return err('Add a title to save the plan.');
       const bands=BANDS.filter(b=>document.getElementById('pf-b-'+b)?.checked);if(!bands.length)return err('Pick at least one age group.');
-      const data={title,theme:val('pf-theme'),bands,mins:parseInt(val('pf-mins'))||60,objective:val('pf-objective'),setup:val('pf-setup'),warmup:val('pf-warmup'),main:val('pf-main'),game:val('pf-game'),points:val('pf-points').split('\n').map(s=>s.trim()).filter(Boolean),progress:val('pf-progress'),link:val('pf-link')};
-      const by=S.coaches.find(c=>c.id===S.session.id).name;
-      if(ui.edit==='new'){const p={id:uid(),by,...data};S.plans.unshift(p);ui.plan=p.id}
-      else{Object.assign(S.plans.find(x=>x.id===ui.edit),data);ui.plan=ui.edit}
-      ui.edit=null;save();render();toast('Plan saved');break;}
-    case 'delete-plan':if(confirm('Delete this plan for all coaches?')){S.plans=S.plans.filter(p=>p.id!==ds.id);ui.plan=null;save();render();toast('Plan deleted')}break;
-    case 'toggle-drill':{
-      const p=player(S.session.id);const hw=S.homework[p.team]||[];
-      const i=S.logs.findIndex(l=>l.p===p.id&&l.d===ds.id&&l.date===T);
-      if(i>=0)S.logs.splice(i,1);else S.logs.push({p:p.id,d:ds.id,date:T});
-      const done=new Set(S.logs.filter(l=>l.p===p.id&&l.date===T).map(l=>l.d));
-      const all=hw.length&&hw.every(h=>done.has(h.d));
-      S.days[p.id]=S.days[p.id]||[];const had=S.days[p.id].includes(T);
-      if(all&&!had){S.days[p.id].push(T);save();render();toast(`All done! ${streak(p.id)} day streak`);}
-      else{if(!all&&had)S.days[p.id]=S.days[p.id].filter(d=>d!==T);save();render();}
-      break;}
-    case 'team':ui.team=ds.v;render();break;
-    case 'hw-add':{const id=val('hw-add');const d=drill(id);if(!d)return;(S.homework[ui.team]=S.homework[ui.team]||[]).push({d:id,target:d.target});save();render();toast('Added to daily reps');break;}
-    case 'hw-remove':S.homework[ui.team].splice(+ds.i,1);save();render();break;
+      const old=ui.edit==='new'?{}:S.plans.find(x=>x.id===ui.edit)||{};
+      const data={...old,title,theme:val('pf-theme'),bands,mins:parseInt(val('pf-mins'))||60,objective:val('pf-objective'),setup:val('pf-setup'),warmup:val('pf-warmup'),main:val('pf-main'),game:val('pf-game'),points:val('pf-points').split('\n').map(s=>s.trim()).filter(Boolean),progress:val('pf-progress'),link:val('pf-link')};
+      if(busy)return;busy=true;
+      try{const row={...planRow(data),updated_at:new Date().toISOString()};
+        const saved=ui.edit==='new'?chk(await sb.from('plans').insert({...row,created_by:S.session.uid}).select().single()):chk(await sb.from('plans').update(row).eq('id',ui.edit).select().single());
+        const p=mapPlan(saved);S.plans=[p,...S.plans.filter(x=>x.id!==p.id)];ui.plan=p.id;ui.edit=null;render();toast('Plan saved')}finally{busy=false}break;}
+    case 'delete-plan':if(confirm('Delete this plan for all coaches?')){chk(await sb.from('plans').delete().eq('id',ds.id));S.plans=S.plans.filter(p=>p.id!==ds.id);ui.plan=null;render();toast('Plan deleted')}break;
+    case 'hw-add':{const id=val('hw-add');const d=drill(id);if(!d)return;const list=S.homework[ui.team]||[];
+      chk(await sb.from('homework').insert({team_id:ui.team,drill_id:id,target:d.target,position:list.length}));
+      (S.homework[ui.team]=list).push({d:id,target:d.target,pos:list.length});render();toast('Added to daily reps');break;}
+    case 'hw-remove':{const h=(S.homework[ui.team]||[])[+ds.i];if(!h)return;
+      chk(await sb.from('homework').delete().match({team_id:ui.team,drill_id:h.d}));S.homework[ui.team].splice(+ds.i,1);render();break;}
     case 'drill-new':ui.addingDrill=true;render();break;
     case 'drill-cancel':ui.addingDrill=false;render();break;
     case 'drill-save':{const name=val('nd-name');if(!name)return err('Give the drill a name.');
-      S.drills.push({id:uid(),name,how:val('nd-how'),target:val('nd-target')||'Coach sets target',video:val('nd-video')});ui.addingDrill=false;save();render();toast('Drill saved to the bank');break;}
-    case 'player-add':{const name=val('np-name'),pin=val('np-pin');
-      if(!name)return err('Add the player\u2019s name.');if(!/^\d{4}$/.test(pin))return err('PIN must be 4 digits.');
-      S.players.push({id:uid(),team:ui.team,name,pin});S.days[S.players.at(-1).id]=[];save();render();toast(name+' added');break;}
-    case 'player-remove':{const p=player(ds.id);if(p&&confirm(`Remove ${p.name} and their history?`)){S.players=S.players.filter(x=>x.id!==p.id);S.logs=S.logs.filter(l=>l.p!==p.id);delete S.days[p.id];save();render()}break;}
-    case 'reset-demo':if(confirm('Reset all demo data on this device?')){const sess=S.session;S=seed();S.session=sess;save();render();toast('Demo data reset')}break;
-  }
+      const r=chk(await sb.from('drills').insert({name,how:val('nd-how'),default_target:val('nd-target')||'Coach sets target',video_url:val('nd-video')||null}).select().single());
+      S.drills.push(mapDrill(r));ui.addingDrill=false;render();toast('Drill saved to the bank');break;}
+    case 'approve':{const p=S.pending.find(x=>x.id===ds.id);if(!p)return;const t=val('ap-'+p.id)||p.req;
+      chk(await sb.from('players').update({status:'active',team_id:t,approved_by:S.session.uid,approved_at:new Date().toISOString()}).eq('id',p.id));
+      S.pending=S.pending.filter(x=>x.id!==p.id);S.players.push({...p,team:t,status:'active'});render();toast(p.name+' approved for '+team(t).name);break;}
+    case 'decline':{const p=S.pending.find(x=>x.id===ds.id);if(!p||!confirm(`Decline ${p.name}? The request will be deleted.`))return;
+      chk(await sb.from('players').delete().eq('id',p.id));S.pending=S.pending.filter(x=>x.id!==p.id);render();toast('Request declined');break;}
+    case 'player-remove':{const p=player(ds.id);if(!p||!confirm(`Remove ${p.name} and their history?`))return;
+      chk(await sb.from('players').delete().eq('id',p.id));S.players=S.players.filter(x=>x.id!==p.id);render();toast(p.name+' removed');break;}
+    case 'copy-link':{const v=val('joinlink');try{await navigator.clipboard.writeText(v);toast('Join link copied')}catch(e){document.getElementById('joinlink')?.select();toast('Select the link and copy it')}break;}
+    case 'invite':{const name=val('inv-name'),email=val('inv-email').toLowerCase();
+      if(!name)return err('Add the coach\u2019s name.','err-inv');if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return err('Enter a valid email.','err-inv');
+      chk(await sb.from('coach_invites').insert({email,name,is_approver:false}));S.invites.push({email,name,is_approver:false});render();toast(name+' invited. They\u2019re a coach once they sign in.');break;}
+    case 'invite-remove':chk(await sb.from('coach_invites').delete().eq('email',ds.email));S.invites=S.invites.filter(i=>i.email!==ds.email);render();break;
+  }}catch(e){console.error(e);toast(friendly(e))}
 }
 document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(el){e.preventDefault();act(el.dataset.act,el.dataset)}});
-document.addEventListener('change',e=>{const el=e.target;
-  if(el.dataset.change==='login-team'){ui.loginTeam=el.value;render();}
-  if(el.dataset.change==='hw-target'){S.homework[ui.team][+el.dataset.i].target=el.value.trim();save();toast('Target updated')}});
+document.addEventListener('change',async e=>{const el=e.target;
+  if(el.dataset.change==='hw-target'){const h=S.homework[ui.team][+el.dataset.i];const v=el.value.trim();
+    try{chk(await sb.from('homework').update({target:v}).match({team_id:ui.team,drill_id:h.d}));h.target=v;toast('Target updated')}catch(x){toast(friendly(x))}}});
 document.addEventListener('input',e=>{if(e.target.id==='q'){ui.q=e.target.value;document.getElementById('planlist').innerHTML=planList(filterPlans())}});
-document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='lpin')act('login',{})});
-render();
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='lemail')act('send-link',{})});
+render();boot();
+
 </script>
 </body>
 </html>
