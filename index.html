@@ -874,7 +874,7 @@ function planDetail(p){
   ${sec('Make it easier or harder',p.progress)}
   ${srcOf(p)==='Lobos staff'
     ?(p.link?`<h3>Further reading</h3><p><a href="${esc(p.link)}" target="_blank" rel="noopener">${esc(p.link)}</a></p>`:'')
-    :`<h3>Source</h3><p>Adapted from ${esc(SRC_LONG[srcOf(p)]||srcOf(p))}${p.ref?`: <em>${esc(p.ref)}</em>`:''}. Written here in our own words for Lobos coaches. <a href="${esc(p.link)}" target="_blank" rel="noopener">Open the original</a> for the full version.</p>`}</div></div>
+    :`<h3>Source</h3><p>Adapted from ${esc(SRC_LONG[srcOf(p)]||srcOf(p))}${p.ref?`: <em>${esc(p.ref)}</em>`:''}. <a href="${esc(p.link)}" target="_blank" rel="noopener">Open the original</a> for the full version.</p>`}</div></div>
   <div class="row" style="margin-top:22px"><button class="btn ghost small" data-act="edit-plan" data-id="${p.id}">Edit plan</button><button class="btn danger small" data-act="delete-plan" data-id="${p.id}">Delete plan</button></div></div>`;
 }
 function planForm(){
