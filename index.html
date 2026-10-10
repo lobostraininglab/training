@@ -173,6 +173,21 @@ details.card summary{cursor:pointer}
   .card{border:1px solid #bbb;box-shadow:none}
   a{color:#000;text-decoration:none}
 }
+/* ===== Game day ===== */
+.ts{display:none}
+@media (max-width:480px){.tl{display:none}.ts{display:inline}}
+.gdboard{display:grid;gap:16px}
+@media (min-width:1000px){.gdboard{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px;align-items:start}}
+.gdpitch{display:block;width:100%;max-width:560px;height:auto;border-radius:10px;margin:0 auto}
+.tblive{touch-action:none;user-select:none;-webkit-user-select:none;margin-top:6px}
+.tbtools{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.tbtools .dgtool[disabled]{opacity:.4}
+.luslot{display:grid;grid-template-columns:56px 1fr;gap:8px;align-items:center;margin:6px 0}
+.luslot select{margin:0}
+.lupos{font-weight:700;font-size:.85rem;color:var(--brand)}
+.lutable{width:100%;border-collapse:collapse}.lutable td{padding:6px 4px;border-bottom:1px solid var(--line)}
+.printonly{display:none}
+@media print{.printonly{display:block}.gdpitch{max-width:3.1in}.lusheet h3{margin:4px 0}.lutable td{padding:3px 4px}.pex .gdboard{grid-template-columns:1fr 1fr!important;display:grid!important}.pex{margin-top:8px}.lusheet{grid-template-columns:1fr 1fr!important;display:grid!important}}
 /* ===== Diagram editor ===== */
 .dged{border:1px solid var(--line);border-radius:14px;padding:12px;background:var(--surface)}
 .dgtop{align-items:center;margin:0 0 8px}
@@ -1272,7 +1287,7 @@ const sb=(window.supabase&&window.supabase.createClient)?window.supabase.createC
 const OAUTH=['google'];
 const STARTER=seed();
 const TEAM_ORDER=STARTER.teams.map(t=>t.id);
-S={teams:[],coaches:[],plans:[],drills:[],homework:{},players:[],pending:[],invites:[],logs:[],days:{},board:[],children:[],guardian:null,session:null,teamCoaches:[],practices:[]};
+S={teams:[],coaches:[],plans:[],drills:[],homework:{},players:[],pending:[],invites:[],logs:[],days:{},board:[],children:[],guardian:null,session:null,teamCoaches:[],practices:[],boards:[],lineups:[]};
 let BOOT={state:'loading',msg:''};
 const JOIN_KEY='lobos-join';
 (function(){const j=new URLSearchParams(location.search).get('join');if(j){try{localStorage.setItem(JOIN_KEY,j.toUpperCase().trim())}catch(e){}}})();
@@ -1317,7 +1332,7 @@ if(sb)sb.auth.onAuthStateChange((ev,session)=>{
   if(ev==='SIGNED_IN'&&session&&(!S.session||S.session.uid!==session.user.id))setTimeout(()=>loadForUser(session.user),0);
   if(ev==='SIGNED_OUT'){resetState();BOOT.state='ready';render()}
 });
-function resetState(){S={teams:[],coaches:[],plans:[],drills:[],homework:{},players:[],pending:[],invites:[],logs:[],days:{},board:[],children:[],guardian:null,session:null,teamCoaches:[],practices:[]};ui={...ui,view:null,plan:null,edit:null,child:null,linkSent:null}}
+function resetState(){S={teams:[],coaches:[],plans:[],drills:[],homework:{},players:[],pending:[],invites:[],logs:[],days:{},board:[],children:[],guardian:null,session:null,teamCoaches:[],practices:[],boards:[],lineups:[]};ui={...ui,view:null,plan:null,edit:null,child:null,linkSent:null}}
 
 async function loadForUser(user){
   if(loadingUid===user.id)return;loadingUid=user.id;
@@ -1342,7 +1357,7 @@ async function loadForUser(user){
   loadingUid=null;render();
 }
 async function loadCoachData(){
-  const [plans,hw,players,logs,days,invites,tcs,prs]=await Promise.all([
+  const [plans,hw,players,logs,days,invites,tcs,prs,bds,lus]=await Promise.all([
     all(()=>sb.from('plans').select('*')),
     all(()=>sb.from('homework').select('*').order('position')),
     all(()=>sb.from('players').select('id,team_id,requested_team_id,display_name,status,created_at').order('created_at')),
@@ -1350,8 +1365,12 @@ async function loadCoachData(){
     all(()=>sb.from('complete_days').select('player_id,day')),
     S.session.approver?all(()=>sb.from('coach_invites').select('email,name,is_approver')):Promise.resolve([]),
     all(()=>sb.from('team_coaches').select('team_id,coach_id')).catch(()=>null),
-    all(()=>sb.from('practices').select('*').gte('day',addDays(today(),-365)).order('day',{ascending:false})).catch(()=>null)
+    all(()=>sb.from('practices').select('*').gte('day',addDays(today(),-365)).order('day',{ascending:false})).catch(()=>null),
+    all(()=>sb.from('tactical_boards').select('*').order('updated_at',{ascending:false})).catch(()=>null),
+    all(()=>sb.from('lineups').select('*').gte('day',addDays(today(),-365)).order('day',{ascending:false})).catch(()=>null)
   ]);
+  // Game day needs step 4 of the database setup; until then the tab shows a reminder.
+  S.gamedayReady=!!(bds&&lus);S.boards=(bds||[]).map(mapBoard);S.lineups=(lus||[]).map(mapLineup);
   // If step 3 of the database setup hasn't been run yet, keep working as before.
   S.practicesReady=!!(tcs&&prs);S.teamCoaches=tcs||[];S.practices=(prs||[]).map(mapPractice);
   S.plans=plans.map(mapPlan).sort((a,b)=>(b.updated||'').localeCompare(a.updated||'')||a.title.localeCompare(b.title));
@@ -1482,8 +1501,8 @@ function header(){
   return `<header class="top"><div class="wrap"><div><h1>Lobos Training Lab</h1><p class="sub">${sub}</p></div><button class="link" data-act="logout">Sign out</button></div>${sw?`<div class="wrap kidsrow">${sw}</div>`:''}</header>`;
 }
 function nav(){
-  const tabs=S.session.role==='coach'?[['plans','Plans'],['practices','Practices'],['homework','Reps'],['squad','Squad'+(S.pending.length?` (${S.pending.length})`:'')],['board','Leaderboard']]:[['today','Today'],['board','Leaderboard'],['badges','Badges'],['family','Family']];
-  return `<nav class="tabs" aria-label="Sections"><div class="wrap">${tabs.map(([v,l])=>`<button data-act="nav" data-v="${v}" ${ui.view===v?'aria-current="page"':''}>${l}</button>`).join('')}</div></nav>`;
+  const tabs=S.session.role==='coach'?[['plans','Plans'],['practices','Practices'],['gameday','Game day'],['homework','Reps'],['squad','Squad'+(S.pending.length?` (${S.pending.length})`:'')],['board','Leaderboard']]:[['today','Today'],['board','Leaderboard'],['badges','Badges'],['family','Family']];
+  return `<nav class="tabs" aria-label="Sections"><div class="wrap">${tabs.map(([v,l])=>{const sh={practices:'Practice',gameday:'Games',board:'Ranks'}[v];return `<button data-act="nav" data-v="${v}" ${ui.view===v?'aria-current="page"':''}>${sh?`<span class="tl">${l}</span><span class="ts">${sh}</span>`:l}</button>`}).join('')}</div></nav>`;
 }
 function render(){setTimeout(dgEditing,0);
   const app=document.getElementById('app');
@@ -1492,7 +1511,7 @@ function render(){setTimeout(dgEditing,0);
   if(!S.session){app.innerHTML=loginView();return}
   const coach=S.session.role==='coach';
   if(!coach){if(!S.guardian){app.innerHTML=consentView();return}if(!S.children.length){app.innerHTML=firstChildView();return}}
-  const views=coach?{plans:plansView,practices:practicesView,homework:homeworkView,squad:squadView,board:coachBoardView}:{today:todayView,board:boardView,badges:badgesView,family:familyView};
+  const views=coach?{plans:plansView,practices:practicesView,gameday:gamedayView,homework:homeworkView,squad:squadView,board:coachBoardView}:{today:todayView,board:boardView,badges:badgesView,family:familyView};
   if(!views[ui.view])ui.view=Object.keys(views)[0];
   let body=null;
   if(coach&&ui.view==='plans'&&!S.plans.length&&!ui.edit)body=starterView();
@@ -1533,7 +1552,7 @@ function dgIcon(k){
 function dgInit(p,key){ui.dg={key,list:JSON.parse(JSON.stringify(p.dg||[])),cur:null,tool:'A',hist:[],drag:null}}
 const dgCur=()=>ui.dg&&ui.dg.cur!==null?ui.dg.list[ui.dg.cur]:null;
 function dgSnap(){const d=dgCur();if(!d)return;ui.dg.hist.push(JSON.stringify(d));if(ui.dg.hist.length>60)ui.dg.hist.shift()}
-function dgEditing(){document.body.classList.toggle('dg-editing',!!(ui.dg&&ui.dg.cur!==null&&ui.edit))}
+function dgEditing(){document.body.classList.toggle('dg-editing',!!((ui.dg&&ui.dg.cur!==null&&ui.edit)||(ui.view==='gameday'&&ui.tb)))}
 function dgRefresh(){const el=document.getElementById('dg-ed');if(el)el.innerHTML=dgEditorHTML();dgEditing()}
 function dgSplit(d){const h=svgDiagram(d);const i=h.indexOf('<svg class="dg"'),j=h.indexOf('</svg>',i)+6,k=h.indexOf('<div class="legend">');return {pitch:h.slice(i,j),legend:k>=0?h.slice(k,h.lastIndexOf('</figure>')):''}}
 function dgLive(over){const d=over||dgCur();if(!d)return;const p=dgSplit(d);const el=document.getElementById('dg-live'),lg=document.getElementById('dg-legend');if(el)el.innerHTML=p.pitch;if(lg)lg.innerHTML=p.legend}
@@ -1760,6 +1779,233 @@ function scanView(){
       <div class="row wrapbtns"><button class="btn ghost" data-act="scan-fill">It’s different, add it as new</button><button class="link" data-act="scan-back">Back to the text</button></div>`}
   return head;
 }
+
+/* ===== Game day: tactical board + lineup sheets =====
+   Full pitch, portrait, 100 wide x 150 long. Our team attacks up the screen. */
+const GD_FORMATS=['5v5','7v7','9v9','11v11'];
+const GD_SHAPES={'5v5':['1-2-1','2-2','2-1-1'],'7v7':['2-3-1','3-2-1','3-1-2'],'9v9':['3-4-1','3-2-3','2-4-2'],'11v11':['4-3-3','4-4-2','4-2-3-1','3-5-2']};
+const GD_XS={1:[50],2:[34,66],3:[22,50,78],4:[14,38,62,86],5:[12,31,50,69,88]};
+const GD_POS={
+  D:{1:['CB'],2:['LCB','RCB'],3:['LB','CB','RB'],4:['LB','LCB','RCB','RB'],5:['LWB','LCB','CB','RCB','RWB']},
+  M:{1:['CM'],2:['LCM','RCM'],3:['LM','CM','RM'],4:['LM','LCM','RCM','RM'],5:['LM','LCM','CM','RCM','RM']},
+  DM:{1:['DM'],2:['LDM','RDM'],3:['LDM','DM','RDM']},
+  AM:{1:['CAM'],2:['LAM','RAM'],3:['LW','CAM','RW']},
+  F:{1:['ST'],2:['LS','RS'],3:['LW','ST','RW']}};
+// Suggested format by age group (U8 5v5, U9-U10 7v7, U11-U12 9v9, U13+ 11v11). Coaches can change it.
+function gdFormatFor(teamId){const m=String(teamId||'').match(/u(\d+)/i);const a=m?+m[1]:13;return a<=8?'5v5':a<=10?'7v7':a<=12?'9v9':'11v11'}
+// Starting shape: GK plus outfield lines from back to front, all in our half.
+function gdShape(format,formation){
+  const lines=formation.split('-').map(Number),n=lines.length;
+  const ys=n===1?[105]:lines.map((_,i)=>Math.round(126-(126-84)*i/(n-1)));
+  const roles=n===2?['D','F']:n===3?['D','M','F']:['D','DM','AM','F'];
+  const out=[{pos:'GK',x:50,y:141}];
+  lines.forEach((k,i)=>{const xs=GD_XS[k]||GD_XS[5],labels=(GD_POS[roles[i]]||GD_POS.M)[k]||xs.map((_,j)=>roles[i]+(j+1));
+    xs.forEach((x,j)=>out.push({pos:labels[j],x,y:ys[i]}))});
+  return out;
+}
+function gdPitch(inner,id){
+  const ln='fill="none" stroke="#fff" stroke-width=".5" stroke-opacity=".9"';
+  let s=`<svg class="gdpitch" viewBox="0 0 100 150" role="img" aria-label="Soccer field"><defs><marker id="${id}" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="4" markerHeight="4" orient="auto"><path d="M0,0 L6,3 L0,6Z" fill="#fff"/></marker></defs>`;
+  s+=`<rect width="100" height="150" fill="#3B8857"/>`;for(let y=4;y<146;y+=20)s+=`<rect x="4" y="${y}" width="92" height="10" fill="#42915F"/>`;
+  s+=`<rect x="4" y="4" width="92" height="142" ${ln}/><line x1="4" y1="75" x2="96" y2="75" ${ln}/><circle cx="50" cy="75" r="9" ${ln}/><circle cx="50" cy="75" r=".7" fill="#fff"/>`;
+  s+=`<rect x="20" y="4" width="60" height="22" ${ln}/><rect x="36" y="4" width="28" height="7" ${ln}/><circle cx="50" cy="17" r=".6" fill="#fff"/><path d="M42,26 A9,9 0 0,0 58,26" ${ln}/><rect x="44" y="1.5" width="12" height="2.5" ${ln} stroke-width=".8"/>`;
+  s+=`<rect x="20" y="124" width="60" height="22" ${ln}/><rect x="36" y="139" width="28" height="7" ${ln}/><circle cx="50" cy="133" r=".6" fill="#fff"/><path d="M42,124 A9,9 0 0,1 58,124" ${ln}/><rect x="44" y="146" width="12" height="2.5" ${ln} stroke-width=".8"/>`;
+  return s+inner+'</svg>';
+}
+function gdDot(x,y,fill,label,sub,dark){
+  const fs=String(label||'').length>2?2.1:2.6;
+  return `<circle cx="${x}" cy="${y}" r="3.6" fill="${fill}" stroke="${dark?'#172036':'#fff'}" stroke-width=".55"/>`+
+    (label?`<text x="${x}" y="${y+fs*.36}" font-size="${fs}" text-anchor="middle" fill="${dark?'#172036':'#fff'}" font-family="Barlow,sans-serif" font-weight="700">${esc(label)}</text>`:'')+
+    (sub?`<text x="${x}" y="${y+6.6}" font-size="2.7" text-anchor="middle" fill="#fff" font-family="Barlow,sans-serif" font-weight="700" paint-order="stroke" stroke="#1f5a37" stroke-width=".8">${esc(sub)}</text>`:'');
+}
+let gdN=0;
+function gdBoardSVG(items){const id='gdah'+(gdN++);let ar='',pl='';
+  for(const it of items){const [k,...a]=it;
+    if(k==='p'||k==='r'||k==='d')ar+=dgArrow(k,a,id);
+    else if(k==='A')pl+=gdDot(a[0],a[1],DCOL.A,a[2]);
+    else if(k==='D')pl+=gdDot(a[0],a[1],DCOL.D,a[2]);
+    else if(k==='K')pl+=gdDot(a[0],a[1],DCOL.K,a[2]);
+    else if(k==='b')pl+=`<circle cx="${a[0]}" cy="${a[1]}" r="1.4" fill="#fff" stroke="#172036" stroke-width=".45"/>`;}
+  return gdPitch(ar+pl,id)}
+// Build the items list for a format + formation, optionally with mirrored opponents.
+function gdItems(format,formation,opp){const us=gdShape(format,formation);
+  const items=us.map(p=>[p.pos==='GK'?'K':'A',p.x,p.y,p.pos]);
+  if(opp)us.forEach(p=>items.push(['D',100-p.x,150-p.y,p.pos]));
+  items.push(['b',50,75]);return items}
+
+/* ----- Tactical board (shared: any coach edits) ----- */
+const TB_TOOLS=[['move','Move'],['A','Add blue'],['D','Add orange'],['b','Ball'],['p','Pass'],['r','Run'],['d','Dribble'],['erase','Erase']];
+function tbNew(format){const formation=GD_SHAPES[format][0];ui.tb={id:null,title:'',notes:'',format,formation,opp:true,items:gdItems(format,formation,true),tool:'move',hist:[],drag:null,dirty:false}}
+function tbOpen(b){const d=b.data||{};ui.tb={id:b.id,title:b.title,notes:b.notes||'',format:b.format,formation:d.formation||GD_SHAPES[b.format][0],opp:d.opp!==false,items:JSON.parse(JSON.stringify(d.items||gdItems(b.format,GD_SHAPES[b.format][0],true))),tool:'move',hist:[],drag:null,dirty:false}}
+function tbLive(over){const el=document.getElementById('tb-live');if(el&&ui.tb)el.innerHTML=gdBoardSVG(over||ui.tb.items)}
+function tbRefresh(){const el=document.getElementById('tb-ed');if(el)el.innerHTML=tbEditorHTML()}
+function tbSnap(){ui.tb.hist.push(JSON.stringify(ui.tb.items));if(ui.tb.hist.length>60)ui.tb.hist.shift();ui.tb.dirty=true}
+function tbEditorHTML(){const T=ui.tb;
+  return `<div class="noprint">
+    <div class="chips" role="group" aria-label="Format">${GD_FORMATS.map(f=>`<button class="chip" data-act="tb-format" data-v="${f}" aria-pressed="${T.format===f}">${f}</button>`).join('')}</div>
+    <div class="row wrapbtns"><label class="small" for="tb-shape" style="margin:0">Formation</label><select id="tb-shape" style="width:auto">${GD_SHAPES[T.format].map(s=>`<option ${s===T.formation?'selected':''}>${s}</option>`).join('')}</select>
+      <label class="check" style="margin:0"><input type="checkbox" id="tb-opp" ${T.opp?'checked':''}> Opponents</label>
+      <button class="btn small ghost" data-act="tb-reset">Reset to formation</button></div>
+    <div class="tbtools">${TB_TOOLS.map(([k,l])=>`<button class="dgtool" data-act="tb-tool" data-v="${k}" aria-pressed="${T.tool===k}">${k==='move'||k==='erase'?dgIcon(k):k==='b'?dgIcon('b'):dgIcon(k)}<span>${l}</span></button>`).join('')}
+      <button class="dgtool" data-act="tb-undo" ${T.hist.length?'':'disabled'}>${'<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7,5 L3,9 L7,13 M3,9 H12 A5,5 0 0,1 12,19" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>'}<span>Undo</span></button>
+      <button class="dgtool" data-act="tb-clear-arrows">${'<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3,15 L15,5 M12,4 L16,4 L16,8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4,4 L16,16" stroke="currentColor" stroke-width="1.6"/></svg>'}<span>Clear arrows</span></button></div>
+    <p class="small muted" style="margin:6px 0">${{move:'Drag players or the ball. Grab an arrow’s end to reshape it.',A:'Tap to add a blue player.',D:'Tap to add an orange player.',b:'Tap to place a ball.',p:'Drag from passer to target.',r:'Drag along the run.',d:'Drag along the dribble.',erase:'Tap anything to remove it.'}[T.tool]}</p></div>
+    <div id="tb-live" class="tblive">${gdBoardSVG(T.items)}</div>`}
+function tbView(){const T=ui.tb;
+  return `<div class="noprint row between"><button class="link" data-act="tb-close">Back to setups</button><button class="btn small ghost" data-act="print-practice">Print</button></div>
+  <p class="printhead small">Lobos Training Lab: tactics</p>
+  <div class="gdboard"><section><div id="tb-ed">${tbEditorHTML()}</div></section>
+  <section><div class="noprint"><label for="tb-title">Setup name</label><input id="tb-title" value="${esc(T.title)}" placeholder="High press from goal kicks">
+  <label for="tb-notes">Talking points for players</label><textarea id="tb-notes" placeholder="What should players see and do?">${esc(T.notes)}</textarea></div>
+  <div class="printonly"><h2>${esc(T.title||'Tactical setup')}</h2><p>${esc(T.format)}, ${esc(T.formation)}</p><p>${esc(T.notes)}</p></div>
+  <p class="err" id="err"></p><div class="row noprint"><button class="btn" data-act="tb-save">Save setup</button>${T.id?'<button class="link danger" data-act="tb-delete">Delete</button>':''}</div>
+  <p class="small muted noprint">Any coach can open and change saved setups.</p></section></div>`}
+function boardsListView(){const f=ui.tbFilter||'All';const list=S.boards.filter(b=>f==='All'||b.format===f);
+  return `<div class="row between"><h3 style="margin:0">Tactical setups</h3><span class="row">${GD_FORMATS.map(x=>`<button class="btn small ghost" data-act="tb-new" data-v="${x}">+ ${x}</button>`).join('')}</span></div>
+  <div class="chips" role="group" aria-label="Filter">${['All',...GD_FORMATS].map(x=>`<button class="chip" data-act="tb-filter" data-v="${x}" aria-pressed="${f===x}">${x==='All'?'All formats':x}</button>`).join('')}</div>
+  ${list.length?`<div class="plist">${list.map(b=>`<button class="pcard" data-act="tb-open" data-id="${b.id}"><span class="row between"><strong>${esc(b.title)}</strong><span class="pill">${esc(b.format)}</span></span><span class="meta">${esc((b.data||{}).formation||'')}${b.by?'. By '+esc(coachName(b.by)):''}</span><span class="small muted">${esc((b.notes||'').slice(0,90))}</span></button>`).join('')}</div>`
+    :'<p class="muted small">No saved setups yet. Start one with a format button above.</p>'}`}
+function tbPt(e){const svg=document.querySelector('#tb-live svg');if(!svg)return null;const r=svg.getBoundingClientRect();
+  return {x:Math.round(Math.max(2,Math.min(98,(e.clientX-r.left)/r.width*100))*2)/2,y:Math.round(Math.max(2,Math.min(148,(e.clientY-r.top)/r.height*150))*2)/2}}
+function tbNearest(pt){let best=null,bd=Infinity;ui.tb.items.forEach((it,i)=>{const [k,...a]=it;const hs='prd'.includes(k)?[{part:'p1',x:a[0],y:a[1]},{part:'p2',x:a[2],y:a[3]},{part:'all',x:(a[0]+a[2])/2,y:(a[1]+a[3])/2}]:[{part:'all',x:a[0],y:a[1]}];
+  hs.forEach(h=>{const d=Math.hypot(h.x-pt.x,h.y-pt.y);if(d>7)return;const sc=d-('AKDb'.includes(k)?2:0);if(sc<=bd){bd=sc;best={i,part:h.part}}})});return best}
+function tbDown(e){const T=ui.tb;const pt=tbPt(e);if(!pt)return;e.preventDefault();
+  if(T.tool==='move'){const h=tbNearest(pt);if(!h)return;tbSnap();T.drag={mode:'move',h,start:pt,orig:T.items[h.i].slice()};return}
+  if(T.tool==='erase'){const h=tbNearest(pt);if(!h)return;tbSnap();T.items.splice(h.i,1);tbAfter();return}
+  if('prd'.includes(T.tool)){T.drag={mode:'draw',start:pt,end:pt};return}
+  tbSnap();if(T.tool==='b')T.items.push(['b',pt.x,pt.y]);else{const n=1+T.items.filter(x=>x[0]===T.tool).length;T.items.push([T.tool,pt.x,pt.y,String(n)])}
+  tbAfter()}
+function tbMove(e){const T=ui.tb;if(!T||!T.drag)return;const pt=tbPt(e);if(!pt)return;e.preventDefault();
+  if(T.drag.mode==='draw'){T.drag.end=pt;tbLive([...T.items,[T.tool,T.drag.start.x,T.drag.start.y,pt.x,pt.y]]);return}
+  const {h,start,orig}=T.drag,dx=pt.x-start.x,dy=pt.y-start.y,it=T.items[h.i]=orig.slice(),cx=v=>Math.max(2,Math.min(98,Math.round(v*2)/2)),cy=v=>Math.max(2,Math.min(148,Math.round(v*2)/2));
+  if(h.part==='p1'){it[1]=cx(orig[1]+dx);it[2]=cy(orig[2]+dy)}else if(h.part==='p2'){it[3]=cx(orig[3]+dx);it[4]=cy(orig[4]+dy)}
+  else{it[1]=cx(orig[1]+dx);it[2]=cy(orig[2]+dy);if('prd'.includes(it[0])){it[3]=cx(orig[3]+dx);it[4]=cy(orig[4]+dy)}}
+  tbLive()}
+function tbUp(){const T=ui.tb;if(!T||!T.drag)return;
+  if(T.drag.mode==='draw'){const {start,end}=T.drag;if(Math.hypot(end.x-start.x,end.y-start.y)>=3){tbSnap();T.items.push([T.tool,start.x,start.y,end.x,end.y])}else toast('Drag a little further to draw that')}
+  T.drag=null;tbAfter()}
+function tbAfter(){tbLive();const u=document.querySelector('[data-act="tb-undo"]');if(u)u.disabled=!ui.tb.hist.length}
+document.addEventListener('pointerdown',e=>{if(ui.tb&&e.target.closest&&e.target.closest('#tb-live svg'))tbDown(e)});
+document.addEventListener('pointermove',e=>{if(ui.tb&&ui.tb.drag)tbMove(e)},{passive:false});
+document.addEventListener('pointerup',()=>{if(ui.tb&&ui.tb.drag)tbUp()});
+document.addEventListener('pointercancel',()=>{if(ui.tb&&ui.tb.drag){ui.tb.drag=null;tbAfter()}});
+
+/* ----- Lineup sheets (team coaches edit; everyone views and prints) ----- */
+const mapLineup=r=>({id:r.id,team:r.team_id,day:r.day,kickoff:r.kickoff||'',opponent:r.opponent||'',location:r.location||'',format:r.format,formation:r.formation,slots:Array.isArray(r.slots)?r.slots:[],subs:Array.isArray(r.subs)?r.subs:[],notes:r.notes||'',board:r.board_id||'',by:r.created_by});
+const mapBoard=r=>({id:r.id,title:r.title,format:r.format,notes:r.notes||'',data:r.data||{},by:r.created_by,updated:r.updated_at||''});
+function luPlayerName(id,fallback){const p=player(id);return p?p.name:(fallback?fallback+' (removed)':'')}
+function luLineupSVG(l){const id='luah'+(gdN++);
+  const dots=l.slots.map(s=>gdDot(s.x,s.y,s.pos==='GK'?DCOL.K:DCOL.A,s.pos,s.player_id?luPlayerName(s.player_id,s.name):'')).join('');
+  return gdPitch(dots,id)}
+function luNewDraft(teamId){const format=gdFormatFor(teamId),formation=GD_SHAPES[format][0];
+  return {team:teamId,day:today(),kickoff:'',opponent:'',location:'',format,formation,slots:gdShape(format,formation).map(s=>({...s,player_id:''})),subs:[],notes:'',board:''}}
+function luReshape(d){const old=d.slots;d.slots=gdShape(d.format,d.formation).map((s,i)=>({...s,player_id:(old.find(o=>o.pos===s.pos)||{}).player_id||''}));
+  const used=new Set(d.slots.map(s=>s.player_id).filter(Boolean));d.subs=d.subs.filter(id=>!used.has(id))}
+function luSync(){const d=ui.lu;if(!d)return;const g=id=>document.getElementById(id);
+  ['day','kickoff','opponent','location','notes'].forEach(k=>{if(g('lu-'+k))d[k]=g('lu-'+k).value.trim()});
+  if(g('lu-board'))d.board=g('lu-board').value;
+  d.slots.forEach((s,i)=>{const el=g('lu-s'+i);if(el)s.player_id=el.value});
+  d.subs=[...document.querySelectorAll('[data-sub]')].filter(x=>x.checked).map(x=>x.dataset.sub)}
+function luEditorView(){const d=ui.lu;const roster=S.players.filter(p=>p.team===d.team).sort((a,b)=>a.name.localeCompare(b.name));
+  const opts=sel=>`<option value="">Choose a player</option>`+roster.map(p=>`<option value="${p.id}" ${p.id===sel?'selected':''}>${esc(p.name)}</option>`).join('');
+  const used=new Set(d.slots.map(s=>s.player_id).filter(Boolean));
+  return `<button class="link" data-act="lu-cancel">Cancel</button><h2>${d.id?'Edit game day sheet':'New game day sheet'}</h2>
+  <div class="gdboard"><section>
+   <div class="card"><label for="lu-team">Team</label><select id="lu-team">${S.teams.filter(t=>canEdit(t.id)).map(t=>`<option value="${t.id}" ${t.id===d.team?'selected':''}>${esc(t.name)}</option>`).join('')}</select>
+    <div class="row wrapbtns"><div style="flex:1;min-width:140px"><label for="lu-day">Date</label><input id="lu-day" type="date" value="${esc(d.day)}"></div>
+    <div style="flex:1;min-width:140px"><label for="lu-kickoff">Kickoff and arrival</label><input id="lu-kickoff" value="${esc(d.kickoff)}" placeholder="9:30 AM, arrive 9:00"></div></div>
+    <label for="lu-opponent">Opponent</label><input id="lu-opponent" value="${esc(d.opponent)}" placeholder="Opponent name">
+    <label for="lu-location">Location</label><input id="lu-location" value="${esc(d.location)}" placeholder="Home, field 3">
+    <label>Format</label><div class="chips">${GD_FORMATS.map(f=>`<button class="chip" data-act="lu-format" data-v="${f}" aria-pressed="${d.format===f}">${f}</button>`).join('')}</div>
+    <label for="lu-shape">Formation</label><select id="lu-shape">${GD_SHAPES[d.format].map(s=>`<option ${s===d.formation?'selected':''}>${s}</option>`).join('')}</select></div>
+   <div class="card"><h3 style="margin-top:0">Starting lineup</h3>${roster.length?'':'<p class="small err">No approved players on this team yet. Approve players in Squad first, or type names in the notes.</p>'}
+    ${d.slots.map((s,i)=>`<div class="luslot"><span class="lupos">${esc(s.pos)}</span><select id="lu-s${i}" data-change="lu-slot" aria-label="${esc(s.pos)}">${opts(s.player_id)}</select></div>`).join('')}</div>
+   <div class="card"><h3 style="margin-top:0">Substitutes</h3>${roster.filter(p=>!used.has(p.id)).map(p=>`<label class="check"><input type="checkbox" data-sub="${p.id}" ${d.subs.includes(p.id)?'checked':''}> ${esc(p.name)}</label>`).join('')||'<p class="small muted">Everyone on the roster is starting.</p>'}</div>
+  </section><section>
+   <div id="lu-pitch" class="lupitch">${luLineupSVG(d)}</div>
+   <div class="card"><label for="lu-board">Attach a tactical setup (optional)</label><select id="lu-board"><option value="">None</option>${S.boards.filter(b=>b.format===d.format).map(b=>`<option value="${b.id}" ${b.id===d.board?'selected':''}>${esc(b.title)}</option>`).join('')}</select>
+    <label for="lu-notes">Notes for the coach running it</label><textarea id="lu-notes" placeholder="Uniform, meet point, rotation plan, who takes kick-offs">${esc(d.notes)}</textarea></div>
+   <p class="err" id="err"></p><div class="row"><button class="btn" data-act="lu-save">Save game day sheet</button>${d.id?`<button class="link danger" data-act="lu-delete" data-id="${d.id}">Delete</button>`:''}</div>
+  </section></div>`}
+function luDetail(l){const ed=canEdit(l.team);const b=l.board&&S.boards.find(x=>x.id===l.board);
+  const starters=l.slots.map(s=>`<tr><td class="lupos">${esc(s.pos)}</td><td>${esc(luPlayerName(s.player_id,s.name))||'<span class="muted">Not set</span>'}</td></tr>`).join('');
+  const subs=l.subs.map(s=>esc(luPlayerName(s.player_id,s.name))).filter(Boolean);
+  return `<div class="noprint"><button class="link" data-act="lu-back">Back to game day sheets</button></div>
+  <p class="printhead small">Lobos Training Lab: game day sheet</p>
+  <h2>${esc(team(l.team).name)}${l.opponent?' vs '+esc(l.opponent):''}</h2>
+  <p class="meta">${esc(fmtDay(l.day))}${l.kickoff?'. '+esc(l.kickoff):''}${l.location?'. '+esc(l.location):''}. ${esc(l.format)}, ${esc(l.formation)}${l.by?'. Set by '+esc(coachName(l.by)):''}</p>
+  <div class="noprint row wrapbtns"><button class="btn small" data-act="print-practice">Print or save as PDF</button>${ed?`<button class="btn small ghost" data-act="lu-edit" data-id="${l.id}">Edit</button><button class="btn small ghost" data-act="lu-copy" data-id="${l.id}">Reuse for next game</button>`:''}</div>
+  <div class="noprint">${editBadge(l.team)}</div>
+  <div class="gdboard lusheet"><section><div class="lupitch">${luLineupSVG(l)}</div></section>
+  <section><h3>Starting lineup</h3><table class="lutable">${starters}</table>
+   <h3>Substitutes</h3><p>${subs.length?subs.join(', '):'<span class="muted">None listed</span>'}</p>
+   ${l.notes?`<h3>Notes</h3><p>${esc(l.notes)}</p>`:''}</section></div>
+  ${b?`<div class="pex"><h3>Tactical setup: ${esc(b.title)}</h3><div class="gdboard"><section><div class="lupitch">${gdBoardSVG((b.data||{}).items||[])}</div></section><section>${b.notes?`<p>${esc(b.notes)}</p>`:''}</section></div></div>`:''}`}
+function lineupsView(){
+  if(ui.lu)return luEditorView();
+  if(ui.luView){const l=S.lineups.find(x=>x.id===ui.luView);if(l)return luDetail(l);ui.luView=null}
+  const chips=teamChips();const t=ui.team,T=today();const list=S.lineups.filter(l=>l.team===t);
+  const up=list.filter(l=>l.day>=T).sort((a,b)=>a.day.localeCompare(b.day)),past=list.filter(l=>l.day<T).sort((a,b)=>b.day.localeCompare(a.day));
+  const card=l=>`<button class="pcard" data-act="lu-open" data-id="${l.id}"><span class="row between"><strong>${esc(fmtDay(l.day))}</strong><span class="pill">${esc(l.format)}</span></span><span class="ptitle">${l.opponent?'vs '+esc(l.opponent):'Game day'}</span><span class="meta">${esc(l.formation)}. ${l.slots.filter(s=>s.player_id).length} of ${l.slots.length} positions set${l.kickoff?'. '+esc(l.kickoff):''}</span></button>`;
+  return `<div class="row between"><h3 style="margin:0">Game day sheets</h3>${canEdit(t)?'<button class="btn small" data-act="lu-new">New game day sheet</button>':''}</div>
+  ${chips}${teamCoachLine(t)}${editBadge(t)}
+  <h3>Coming up</h3>${up.length?`<div class="plist">${up.map(card).join('')}</div>`:'<p class="muted small">No upcoming games set for this team.</p>'}
+  <h3>Past games</h3>${past.length?`<div class="plist">${past.map(card).join('')}</div>`:'<p class="muted small">No past game day sheets.</p>'}`}
+function gamedayView(){
+  if(!S.gamedayReady)return `<h2>Game day</h2><div class="card"><h3>One more database step</h3><p>Game day needs a small addition to the club database. In Supabase, open the SQL Editor, start a new query, paste in the step 4 file (lobos-schema-4-gameday.sql) and click Run once. Then refresh this page.</p></div>`;
+  const sub=ui.gd||'board';
+  const head=`<div class="noprint"><h2>Game day</h2><div class="chips" role="group" aria-label="Game day section">${[['board','Tactics board'],['lineups','Game day sheets']].map(([v,l])=>`<button class="chip" data-act="gd-sub" data-v="${v}" aria-pressed="${sub===v}">${l}</button>`).join('')}</div></div>`;
+  if(sub==='board')return (ui.tb?'':head)+(ui.tb?tbView():boardsListView());
+  return (ui.lu||ui.luView?'':head)+lineupsView();
+}
+async function gamedayAct(a,ds){
+  switch(a){
+    case 'gd-sub':ui.gd=ds.v;ui.tb=null;ui.lu=null;ui.luView=null;render();return true;
+    case 'tb-new':tbNew(ds.v);render();window.scrollTo(0,0);return true;
+    case 'tb-open':{const b=S.boards.find(x=>x.id===ds.id);if(b){tbOpen(b);render();window.scrollTo(0,0)}return true;}
+    case 'tb-filter':ui.tbFilter=ds.v;render();return true;
+    case 'tb-close':if(ui.tb&&ui.tb.dirty&&!confirm('Leave without saving this setup?'))return true;ui.tb=null;render();return true;
+    case 'tb-tool':ui.tb.tool=ds.v;tbRefresh();return true;
+    case 'tb-format':{if(ui.tb.dirty&&!confirm('Switch format? Players reset to the new formation.'))return true;const T=ui.tb;tbSnap();T.format=ds.v;T.formation=GD_SHAPES[ds.v][0];T.items=gdItems(T.format,T.formation,T.opp);tbRefresh();return true;}
+    case 'tb-reset':{const T=ui.tb;tbSnap();T.items=gdItems(T.format,T.formation,T.opp);tbRefresh();return true;}
+    case 'tb-undo':{const s=ui.tb.hist.pop();if(s)ui.tb.items=JSON.parse(s);tbRefresh();return true;}
+    case 'tb-clear-arrows':{const T=ui.tb;if(!T.items.some(x=>'prd'.includes(x[0])))return true;tbSnap();T.items=T.items.filter(x=>!'prd'.includes(x[0]));tbRefresh();return true;}
+    case 'tb-save':{const T=ui.tb;T.title=val('tb-title');T.notes=val('tb-notes');if(!T.title)return err('Give the setup a name so coaches can find it.'),true;
+      if(busy)return true;busy=true;
+      try{const row={title:T.title,format:T.format,notes:T.notes||null,data:{formation:T.formation,opp:T.opp,items:T.items},updated_by:S.session.uid,updated_at:new Date().toISOString()};
+        const saved=T.id?chk(await sb.from('tactical_boards').update(row).eq('id',T.id).select().single()):chk(await sb.from('tactical_boards').insert({...row,created_by:S.session.uid}).select().single());
+        const b=mapBoard(saved);S.boards=[b,...S.boards.filter(x=>x.id!==b.id)];T.id=b.id;T.dirty=false;render();toast('Setup saved')}finally{busy=false}return true;}
+    case 'tb-delete':{if(!confirm('Delete this tactical setup for all coaches?'))return true;chk(await sb.from('tactical_boards').delete().eq('id',ui.tb.id));S.boards=S.boards.filter(x=>x.id!==ui.tb.id);ui.tb=null;render();toast('Setup deleted');return true;}
+    case 'lu-new':ui.lu=luNewDraft(ui.team);render();window.scrollTo(0,0);return true;
+    case 'lu-open':ui.luView=ds.id;render();window.scrollTo(0,0);return true;
+    case 'lu-back':ui.luView=null;render();return true;
+    case 'lu-cancel':ui.lu=null;render();return true;
+    case 'lu-edit':case 'lu-copy':{const l=S.lineups.find(x=>x.id===ds.id);if(!l)return true;ui.lu=JSON.parse(JSON.stringify({...l,subs:l.subs.map(s=>s.player_id)}));
+      if(a==='lu-copy'){delete ui.lu.id;ui.lu.day=today();ui.lu.opponent='';ui.lu.kickoff='';ui.lu.location='';toast('Copied. Set the date and opponent.')}
+      ui.luView=null;render();window.scrollTo(0,0);return true;}
+    case 'lu-format':{luSync();const d=ui.lu;d.format=ds.v;d.formation=GD_SHAPES[ds.v][0];luReshape(d);if(d.board&&!S.boards.some(b=>b.id===d.board&&b.format===d.format))d.board='';render();return true;}
+    case 'lu-save':{luSync();const d=ui.lu;
+      if(!canEdit(d.team))return err('Pick a team you’re assigned to.'),true;
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(d.day||''))return err('Pick the game date.'),true;
+      const ids=d.slots.map(s=>s.player_id).filter(Boolean);d.subs=d.subs.filter(id=>!ids.includes(id));if(new Set(ids).size!==ids.length)return err('A player is in two positions. Each player can start in one position only.'),true;
+      if(busy)return true;busy=true;
+      try{const row={team_id:d.team,day:d.day,kickoff:d.kickoff||null,opponent:d.opponent||null,location:d.location||null,format:d.format,formation:d.formation,
+          slots:d.slots.map(s=>({pos:s.pos,x:s.x,y:s.y,player_id:s.player_id||null,name:s.player_id?luPlayerName(s.player_id):''})),
+          subs:d.subs.map(id=>({player_id:id,name:luPlayerName(id)})),notes:d.notes||null,board_id:d.board||null,updated_by:S.session.uid,updated_at:new Date().toISOString()};
+        const saved=d.id?chk(await sb.from('lineups').update(row).eq('id',d.id).select().single()):chk(await sb.from('lineups').insert({...row,created_by:S.session.uid}).select().single());
+        const l=mapLineup(saved);S.lineups=[l,...S.lineups.filter(x=>x.id!==l.id)];ui.team=l.team;ui.lu=null;ui.luView=l.id;render();window.scrollTo(0,0);toast('Game day sheet saved')}finally{busy=false}return true;}
+    case 'lu-delete':{if(!confirm('Delete this game day sheet?'))return true;chk(await sb.from('lineups').delete().eq('id',ds.id));S.lineups=S.lineups.filter(x=>x.id!==ds.id);ui.lu=null;ui.luView=null;render();toast('Game day sheet deleted');return true;}
+  }
+  return false;
+}
+// Live updates inside the lineup editor without losing what's been typed.
+document.addEventListener('change',e=>{const el=e.target;
+  if(ui.tb&&el.id==='tb-shape'){const T=ui.tb;tbSnap();T.formation=el.value;T.items=gdItems(T.format,T.formation,T.opp);tbRefresh()}
+  else if(ui.tb&&el.id==='tb-opp'){const T=ui.tb;tbSnap();T.opp=el.checked;T.items=T.opp?[...T.items.filter(x=>x[0]!=='D'),...gdShape(T.format,T.formation).map(p=>['D',100-p.x,150-p.y,p.pos])]:T.items.filter(x=>x[0]!=='D');tbRefresh()}
+  else if(ui.lu&&el.id==='lu-shape'){luSync();ui.lu.formation=el.value;luReshape(ui.lu);render()}
+  else if(ui.lu&&el.id==='lu-team'){luSync();ui.lu.team=el.value;ui.lu.slots.forEach(s=>s.player_id='');ui.lu.subs=[];render()}
+  else if(ui.lu&&(el.dataset.change==='lu-slot'||el.dataset.sub!==undefined)){luSync();const p=document.getElementById('lu-pitch');if(p)p.innerHTML=luLineupSVG(ui.lu)}
+});
 
 /* ===== Practices and team assignments ===== */
 const canEdit=t=>!!S.session&&S.session.role==='coach'&&(!S.practicesReady||S.session.approver||S.teamCoaches.some(a=>a.team_id===t&&a.coach_id===S.session.uid));
@@ -1991,7 +2237,7 @@ async function act(a,ds){
     case 'invite':{const name=val('inv-name'),email=val('inv-email').toLowerCase();
       if(!name)return err('Add the coach\u2019s name.','err-inv');if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return err('Enter a valid email.','err-inv');
       chk(await sb.from('coach_invites').insert({email,name,is_approver:false}));S.invites.push({email,name,is_approver:false});render();toast(name+' invited. They\u2019re a coach once they sign in.');break;}
-    default:await practiceAct(a,ds);break;
+    default:if(!(await gamedayAct(a,ds)))await practiceAct(a,ds);break;
     case 'invite-remove':chk(await sb.from('coach_invites').delete().eq('email',ds.email));S.invites=S.invites.filter(i=>i.email!==ds.email);render();break;
   }}catch(e){console.error(e);toast(friendly(e))}
 }
