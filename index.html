@@ -38,12 +38,15 @@ main{max-width:640px;margin:0 auto;padding:16px 16px 110px}
 .top h1{font-size:1.35rem}
 .sub{color:var(--muted);font-size:.9rem;margin:0}
 .link{background:none;border:0;color:var(--brand);font-weight:600;padding:8px 4px}
+.backbtn{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:8px 14px 8px 10px;margin:2px 0 8px;font-weight:700;color:var(--brand);font-size:15px;cursor:pointer}
+.backbtn::before{content:"";width:9px;height:9px;border-left:2.5px solid currentColor;border-bottom:2.5px solid currentColor;transform:rotate(45deg);margin-left:4px}
 .tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
 .tabs .wrap{display:grid;grid-auto-flow:column;grid-auto-columns:1fr}
 .tabs button{background:none;border:0;padding:14px 4px;font-weight:600;color:var(--muted);border-top:3px solid transparent}
 .tabs button[aria-current="page"]{color:var(--ink);border-top-color:var(--brand)}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:10px 0}
 .btn{background:var(--brand);color:var(--brand-ink);border:0;border-radius:8px;padding:11px 16px;font-weight:600}
+a.btn{text-decoration:none;display:inline-flex;align-items:center}
 .btn.ghost{background:transparent;color:var(--brand);border:1.5px solid var(--brand)}
 .btn.go{background:var(--go);color:#fff}
 .btn.small{padding:7px 12px;font-size:.92rem}
@@ -102,6 +105,7 @@ textarea{min-height:84px;resize:vertical}
 .detail li{margin:.25rem 0}
 .phase{white-space:pre-line}
 .squad{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
+.squad.fresh{background:#eaf5fc;border-radius:10px;padding:11px 8px}
 .squad:last-child{border-bottom:0}
 .dot{width:12px;height:12px;border-radius:50%;background:var(--line);display:inline-block}
 .dot.on{background:var(--go)}
@@ -164,7 +168,7 @@ details.card summary{cursor:pointer}
 @media print{
   :root:root:root{--paper:#fff;--surface:#fff;--ink:#000;--muted:#444;--line:#bbb;--soft:#eee;--brand:#0B2545;--brand-ink:#fff;--go:#1A7FBF;--go-soft:#E0F0FA}
   body{background:#fff!important;color:#000!important;font-size:11pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .top,.tabs,.noprint,.toast,.viewonly{display:none!important}
+  .top,.tabs,.noprint,.toast,.viewonly,.backbtn{display:none!important}
   main{max-width:none!important;padding:0!important;margin:0!important}
   .printhead{display:block;color:#444;margin:0}
   .pex{break-inside:avoid;page-break-inside:avoid}
@@ -189,7 +193,9 @@ details.card summary{cursor:pointer}
 .printonly{display:none}
 @media print{.printonly{display:block}.gdpitch{max-width:3.1in}.lusheet h3{margin:4px 0}.lutable td{padding:3px 4px}.pex .gdboard{grid-template-columns:1fr 1fr!important;display:grid!important}.pex{margin-top:8px}.lusheet{grid-template-columns:1fr 1fr!important;display:grid!important}}
 /* Full-screen tactics board */
-body.tb-fs{overflow:hidden;overscroll-behavior:none}
+body.tb-fs{overflow:hidden;overscroll-behavior:none;position:fixed;left:0;right:0;top:0;width:100%;touch-action:none}
+.tbfs{touch-action:none;overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.tbfs.land .tbfsbar{touch-action:pan-y}
 .tbfs{position:fixed;inset:0;z-index:60;background:#163522;display:flex;flex-direction:column;padding:max(6px,env(safe-area-inset-top)) max(6px,env(safe-area-inset-right)) max(6px,env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left));gap:6px}
 .tbfs.land{flex-direction:row}
 .tbfsbar{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;flex:0 0 auto}
@@ -1211,7 +1217,7 @@ function planList(list){
 }
 function planDetail(p){
   const sec=(t,v)=>v?`<h3>${t}</h3><p class="phase">${esc(v)}</p>`:'';
-  return `<div class="detail"><button class="link" data-act="back">Back to plans</button>
+  return `<div class="detail"><button class="backbtn" data-act="back">Plans</button>
   <h2>${esc(p.title)}</h2><p class="meta">${esc(p.theme)}. ${bandsText(p)}. ${esc(p.mins)} min. Source: ${esc(srcOf(p))}</p>
   <div class="dsplit"><div class="dtext1">${sec('Objective',p.objective)}${sec('Setup',p.setup)}${sec('Warm-up',p.warmup)}${sec('Main practice',p.main)}</div>
   <aside class="dvis">${(p.dg||[]).map(svgDiagram).join('')}
@@ -1228,7 +1234,7 @@ function planForm(){
   const p=ui.edit==='new'?{...blank,...(ui.prefill||{}),mins:(ui.prefill&&ui.prefill.mins)||blank.mins}:S.plans.find(x=>x.id===ui.edit);
   const dgKey=ui.edit+'|'+(ui.prefill?'scan':'');if(!ui.dg||ui.dg.key!==dgKey)dgInit(p,dgKey);
   const f=(id,l,v,ta)=>`<label for="pf-${id}">${l}</label>${ta?`<textarea id="pf-${id}">${esc(v)}</textarea>`:`<input id="pf-${id}" value="${esc(v)}">`}`;
-  return `<button class="link" data-act="cancel-edit">Cancel</button><h2>${ui.edit==='new'?'New plan':'Edit plan'}</h2>
+  return `<button class="backbtn" data-act="cancel-edit">Back</button><h2>${ui.edit==='new'?'New plan':'Edit plan'}</h2>
   ${ui.edit==='new'&&ui.prefill?`<div class="card prefill"><strong>Filled in from your scan.</strong> Check every box before saving, especially the theme, ages and minutes, which are best guesses. Anything the app couldn\u2019t place went into Main practice.${ui.prefill.near?`<br><span class="small">Closest in the library: ${esc(ui.prefill.near)}.</span>`:''}</div>`:''}
   ${f('title','Title',p.title)}
   <label for="pf-theme">Theme</label><select id="pf-theme">${THEMES.map(t=>`<option ${t===p.theme?'selected':''}>${esc(t)}</option>`).join('')}</select>
@@ -1499,12 +1505,26 @@ function squadView(){
 function coachesCard(){
   return `<div class="card"><h3>Coaches</h3>
     ${S.coaches.map(c=>`<div class="squad"><span><strong>${esc(c.name)}</strong><br><span class="small muted">${c.is_approver?'Approver':'Coach'}</span></span><span></span><span></span></div>`).join('')}
-    ${S.invites.map(i=>`<div class="squad"><span><strong>${esc(i.name)}</strong><br><span class="small muted">Invited: ${esc(i.email)}</span></span><span></span><button class="link" data-act="invite-remove" data-email="${esc(i.email)}">Cancel</button></div>`).join('')}
-    <h3 style="margin-top:14px">Invite a coach</h3><p class="small muted">They become a coach the first time they sign in with this email.</p>
+    ${S.invites.length?`<p class="small muted" style="margin:10px 0 0">Not signed in yet. Tap <strong>Email</strong> or <strong>Text</strong> to send them their sign-in steps.</p>`:''}
+    ${S.invites.map(i=>`<div class="squad${ui.justInvited===i.email?' fresh':''}"><span><strong>${esc(i.name)}</strong><br><span class="small muted">Invited: ${esc(i.email)}</span></span><span class="row" style="gap:6px;flex-wrap:wrap;justify-content:flex-end"><a class="btn small" href="${inviteMailto(i)}">Email</a><button class="btn small ghost" data-act="invite-share" data-email="${esc(i.email)}">Text / copy</button></span><button class="link" data-act="invite-remove" data-email="${esc(i.email)}">Cancel</button></div>`).join('')}
+    <h3 style="margin-top:14px">Invite a coach</h3><p class="small muted">Add their name and the exact email they will sign in with (a Gmail is easiest). Then tap <strong>Email</strong> next to their name to send the sign-in steps from your own mail app.</p>
     <label for="inv-name">Name</label><input id="inv-name" placeholder="Tori">
     <label for="inv-email">Email</label><input id="inv-email" type="email" placeholder="coach@example.com">
-    <p class="err" id="err-inv"></p><button class="btn small" data-act="invite">Send invite</button></div>`;
+    <p class="err" id="err-inv"></p><button class="btn small" data-act="invite">Add coach</button></div>`;
 }
+function inviteText(i){const link=location.origin+location.pathname,first=(i.name||'Coach').split(' ')[0];
+  return `Hi ${first},
+
+You have been added as a coach on Lobos Training Lab, our club training site.
+
+1. Open ${link}
+2. Tap "Continue with Google" and choose ${i.email}. If that address is not a Google account, type it into the email box instead and open the sign-in link that arrives.
+3. You will land on the coach screens with the session library, practices and game day tools.
+
+Please use exactly ${i.email}. Any other address signs you in as a parent instead.
+
+Coach Jason`}
+function inviteMailto(i){return 'mailto:'+i.email+'?subject='+encodeURIComponent('Your coach login for Lobos Training Lab')+'&body='+encodeURIComponent(inviteText(i))}
 
 function header(){
   const s=S.session;let sub='',sw='';
@@ -1517,7 +1537,7 @@ function nav(){
   const tabs=S.session.role==='coach'?[['plans','Plans'],['practices','Practices'],['gameday','Game day'],['homework','Reps'],['squad','Squad'+(S.pending.length?` (${S.pending.length})`:'')],['board','Leaderboard']]:[['today','Today'],['board','Leaderboard'],['badges','Badges'],['family','Family']];
   return `<nav class="tabs" aria-label="Sections"><div class="wrap">${tabs.map(([v,l])=>{const sh={practices:'Practice',gameday:'Games',board:'Ranks'}[v];return `<button data-act="nav" data-v="${v}" ${ui.view===v?'aria-current="page"':''}>${sh?`<span class="tl">${l}</span><span class="ts">${sh}</span>`:l}</button>`}).join('')}</div></nav>`;
 }
-function render(){setTimeout(dgEditing,0);
+function render(){setTimeout(dgEditing,0);setTimeout(navSync,0);
   const app=document.getElementById('app');
   if(BOOT.state==='loading'){app.innerHTML=`<div class="login">${WORDMARK}<p class="muted">Loading\u2026</p></div>`;return}
   if(BOOT.state==='error'){app.innerHTML=`<div class="login">${WORDMARK}<p class="err">${esc(BOOT.msg)}</p><button class="btn" data-act="retry">Try again</button> <button class="link" data-act="logout">Sign out</button></div>`;return}
@@ -1566,7 +1586,7 @@ function dgInit(p,key){ui.dg={key,list:JSON.parse(JSON.stringify(p.dg||[])),cur:
 const dgCur=()=>ui.dg&&ui.dg.cur!==null?ui.dg.list[ui.dg.cur]:null;
 function dgSnap(){const d=dgCur();if(!d)return;ui.dg.hist.push(JSON.stringify(d));if(ui.dg.hist.length>60)ui.dg.hist.shift()}
 function dgEditing(){document.body.classList.toggle('dg-editing',!!((ui.dg&&ui.dg.cur!==null&&ui.edit)||(ui.view==='gameday'&&ui.tb)))}
-function dgRefresh(){const el=document.getElementById('dg-ed');if(el)el.innerHTML=dgEditorHTML();dgEditing()}
+function dgRefresh(){const el=document.getElementById('dg-ed');if(el)el.innerHTML=dgEditorHTML();dgEditing();navSync()}
 function dgSplit(d){const h=svgDiagram(d);const i=h.indexOf('<svg class="dg"'),j=h.indexOf('</svg>',i)+6,k=h.indexOf('<div class="legend">');return {pitch:h.slice(i,j),legend:k>=0?h.slice(k,h.lastIndexOf('</figure>')):''}}
 function dgLive(over){const d=over||dgCur();if(!d)return;const p=dgSplit(d);const el=document.getElementById('dg-live'),lg=document.getElementById('dg-legend');if(el)el.innerHTML=p.pitch;if(lg)lg.innerHTML=p.legend}
 function dgEditorHTML(){
@@ -1769,7 +1789,7 @@ async function runScan(file){
 }
 function scanView(){
   const s=ui.scan;
-  const head=`<button class="link" data-act="scan-cancel">Cancel</button><h2>Scan a printed session</h2>`;
+  const head=`<button class="backbtn" data-act="scan-cancel">Back</button><h2>Scan a printed session</h2>`;
   if(s.step==='pick')return head+`<p class="muted">Take a photo of a printed or typed session plan. The app reads it, checks the library for anything similar, then fills in a new plan for you to check.</p>
     ${s.error?`<p class="err">${esc(s.error)}</p>`:''}
     <label class="btn scanpick" for="scan-file">Take a photo or choose a picture</label>
@@ -1889,7 +1909,7 @@ function tbEditorHTML(){const T=ui.tb;
     <p class="small muted" style="margin:6px 0">${{move:'Drag players or the ball. Grab an arrow’s end to reshape it.',A:'Tap to add a blue player.',D:'Tap to add an orange player.',b:'Tap to place a ball.',p:'Drag from passer to target.',r:'Drag along the run.',d:'Drag along the dribble.',erase:'Tap anything to remove it.'}[T.tool]}</p></div>
     <div id="tb-live" class="tblive">${gdBoardSVG(T.items)}</div>`}
 function tbView(){const T=ui.tb;
-  return `<div class="noprint row between"><button class="link" data-act="tb-close">Back to setups</button><span class="row"><button class="btn small" data-act="tb-fs">Full screen</button><button class="btn small ghost" data-act="print-practice">Print</button></span></div>
+  return `<div class="noprint row between"><button class="backbtn" data-act="tb-close">Setups</button><span class="row"><button class="btn small" data-act="tb-fs">Full screen</button><button class="btn small ghost" data-act="print-practice">Print</button></span></div>
   <p class="printhead small">Lobos Training Lab: tactics</p>
   <div class="gdboard"><section><div id="tb-ed">${tbEditorHTML()}</div></section>
   <section><div class="noprint"><label for="tb-title">Setup name</label><input id="tb-title" value="${esc(T.title)}" placeholder="High press from goal kicks">
@@ -1925,11 +1945,14 @@ function tbUp(){const T=ui.tb;if(!T||!T.drag)return;
   T.drag=null;tbAfter()}
 function tbAfter(){tbLive();const u=document.querySelector('[data-act="tb-undo"]');if(u)u.disabled=!ui.tb.hist.length}
 document.addEventListener('pointerdown',e=>{if(ui.tb&&e.target.closest&&e.target.closest('#tb-live svg'))tbDown(e)});
-function tbExitFs(fromButton){if(!ui.tb||!ui.tb.fs)return;ui.tb.fs=false;document.body.classList.remove('tb-fs');
+const TB_TOUCH=(window.matchMedia&&matchMedia('(pointer:coarse)').matches)||navigator.maxTouchPoints>1;let tbScrollY=0;
+function tbExitFs(fromButton){if(!ui.tb||!ui.tb.fs)return;ui.tb.fs=false;document.body.classList.remove('tb-fs');document.body.style.top='';setTimeout(()=>window.scrollTo(0,tbScrollY),0);
   const fe=document.fullscreenElement||document.webkitFullscreenElement;if(fromButton&&fe){const ex=document.exitFullscreen||document.webkitExitFullscreen;try{const p=ex.call(document);if(p&&p.catch)p.catch(()=>{})}catch(x){}}
   tbRefresh()}
-// Leaving browser full screen with a swipe or Esc also closes our full-screen board.
-['fullscreenchange','webkitfullscreenchange'].forEach(ev=>document.addEventListener(ev,()=>{if(!(document.fullscreenElement||document.webkitFullscreenElement)&&ui.tb&&ui.tb.fs)tbExitFs(false)}));
+// The full-screen board only closes with its Exit button. Swipes, the browser leaving full screen, or a back gesture leave it open.
+['fullscreenchange','webkitfullscreenchange'].forEach(ev=>document.addEventListener(ev,()=>{if(ui.tb&&ui.tb.fs)setTimeout(tbRefresh,60)}));
+document.addEventListener('touchmove',e=>{if(!ui.tb||!ui.tb.fs)return;const bar=e.target.closest&&e.target.closest('.tbfs.land .tbfsbar');if(!bar&&e.cancelable)e.preventDefault()},{passive:false});
+['gesturestart','gesturechange'].forEach(ev=>document.addEventListener(ev,e=>{if(ui.tb&&ui.tb.fs)e.preventDefault()},{passive:false}));
 let tbResizeT=null;addEventListener('resize',()=>{if(!ui.tb||!ui.tb.fs)return;clearTimeout(tbResizeT);tbResizeT=setTimeout(tbRefresh,120)});
 document.addEventListener('pointermove',e=>{if(ui.tb&&ui.tb.drag)tbMove(e)},{passive:false});
 document.addEventListener('pointerup',()=>{if(ui.tb&&ui.tb.drag)tbUp()});
@@ -1954,7 +1977,7 @@ function luSync(){const d=ui.lu;if(!d)return;const g=id=>document.getElementById
 function luEditorView(){const d=ui.lu;const roster=S.players.filter(p=>p.team===d.team).sort((a,b)=>a.name.localeCompare(b.name));
   const opts=sel=>`<option value="">Choose a player</option>`+roster.map(p=>`<option value="${p.id}" ${p.id===sel?'selected':''}>${esc(p.name)}</option>`).join('');
   const used=new Set(d.slots.map(s=>s.player_id).filter(Boolean));
-  return `<button class="link" data-act="lu-cancel">Cancel</button><h2>${d.id?'Edit game day sheet':'New game day sheet'}</h2>
+  return `<button class="backbtn" data-act="lu-cancel">Back</button><h2>${d.id?'Edit game day sheet':'New game day sheet'}</h2>
   <div class="gdboard"><section>
    <div class="card"><label for="lu-team">Team</label><select id="lu-team">${S.teams.filter(t=>canEdit(t.id)).map(t=>`<option value="${t.id}" ${t.id===d.team?'selected':''}>${esc(t.name)}</option>`).join('')}</select>
     <div class="row wrapbtns"><div style="flex:1;min-width:140px"><label for="lu-day">Date</label><input id="lu-day" type="date" value="${esc(d.day)}"></div>
@@ -1975,7 +1998,7 @@ function luEditorView(){const d=ui.lu;const roster=S.players.filter(p=>p.team===
 function luDetail(l){const ed=canEdit(l.team);const b=l.board&&S.boards.find(x=>x.id===l.board);
   const starters=l.slots.map(s=>`<tr><td class="lupos">${esc(s.pos)}</td><td>${esc(luPlayerName(s.player_id,s.name))||'<span class="muted">Not set</span>'}</td></tr>`).join('');
   const subs=l.subs.map(s=>esc(luPlayerName(s.player_id,s.name))).filter(Boolean);
-  return `<div class="noprint"><button class="link" data-act="lu-back">Back to game day sheets</button></div>
+  return `<div class="noprint"><button class="backbtn" data-act="lu-back">Game day sheets</button></div>
   <p class="printhead small">Lobos Training Lab: game day sheet</p>
   <h2>${esc(team(l.team).name)}${l.opponent?' vs '+esc(l.opponent):''}</h2>
   <p class="meta">${esc(fmtDay(l.day))}${l.kickoff?'. '+esc(l.kickoff):''}${l.location?'. '+esc(l.location):''}. ${esc(l.format)}, ${esc(l.formation)}${l.by?'. Set by '+esc(coachName(l.by)):''}</p>
@@ -2009,8 +2032,9 @@ async function gamedayAct(a,ds){
     case 'tb-new':tbNew(ds.v);render();window.scrollTo(0,0);return true;
     case 'tb-open':{const b=S.boards.find(x=>x.id===ds.id);if(b){tbOpen(b);render();window.scrollTo(0,0)}return true;}
     case 'tb-filter':ui.tbFilter=ds.v;render();return true;
-    case 'tb-fs':{ui.tb.fs=true;document.body.classList.add('tb-fs');const el=document.documentElement,rq=el.requestFullscreen||el.webkitRequestFullscreen;
-      if(rq){try{const p=rq.call(el);if(p&&p.catch)p.catch(()=>{})}catch(x){}}tbRefresh();setTimeout(()=>{tbRefresh()},350);return true;}
+    case 'tb-fs':{ui.tb.fs=true;tbScrollY=window.scrollY||0;document.body.style.top=(-tbScrollY)+'px';document.body.classList.add('tb-fs');const el=document.documentElement,rq=el.requestFullscreen||el.webkitRequestFullscreen;
+      // Tablets and phones: skip the browser's own full screen, which iPadOS closes with a swipe. Our board already fills the screen.
+      if(rq&&!TB_TOUCH){try{const p=rq.call(el);if(p&&p.catch)p.catch(()=>{})}catch(x){}}tbRefresh();setTimeout(()=>{tbRefresh()},350);return true;}
     case 'tb-fs-exit':{tbExitFs(true);return true;}
     case 'tb-close':if(ui.tb&&ui.tb.dirty&&!confirm('Leave without saving this setup?'))return true;tbExitFs(true);ui.tb=null;render();return true;
     case 'tb-tool':ui.tb.tool=ds.v;tbRefresh();return true;
@@ -2092,7 +2116,7 @@ function practiceDetail(p){
     ${pl.progress?`<p class="small"><strong>Easier or harder.</strong> ${esc(pl.progress)}</p>`:''}
     <p class="noprint small"><button class="link" data-act="open-plan-from-practice" data-id="${pl.id}">Open the full session</button></p>`
     :'<p class="muted small">This session has since been removed from the library.</p>'}</section>`}).join('');
-  return `<div class="noprint"><button class="link" data-act="practice-back">Back to practices</button></div>
+  return `<div class="noprint"><button class="backbtn" data-act="practice-back">Practices</button></div>
   <p class="printhead small">Lobos Training Lab</p>
   <h2>${esc(team(p.team).name)}: ${esc(fmtDay(p.day))}</h2>
   <p class="meta">${p.title?esc(p.title)+'. ':''}${p.items.length} exercise${p.items.length===1?'':'s'}, ${pMins(p)} min total${p.by?'. Set by '+esc(coachName(p.by)):''}${p.status==='done'?'. Marked done':''}</p>
@@ -2117,7 +2141,7 @@ function practiceEditor(){
   const items=d.items.map((it,i)=>`<div class="pitem"><span class="pnum">${i+1}</span><span class="pit">${esc(it.title)}</span>
     <input type="number" inputmode="numeric" min="0" max="180" value="${+it.minutes||0}" data-change="pi-min" data-i="${i}" aria-label="Minutes for ${esc(it.title)}"><span class="small muted">min</span>
     <span class="pbtns"><button class="link" data-act="pi-up" data-i="${i}" ${i?'':'disabled'} aria-label="Move up">Move up</button><button class="link" data-act="pi-down" data-i="${i}" ${i<d.items.length-1?'':'disabled'} aria-label="Move down">Move down</button><button class="link danger" data-act="pi-remove" data-i="${i}">Remove</button></span></div>`).join('');
-  return `<button class="link" data-act="practice-cancel">Cancel</button>
+  return `<button class="backbtn" data-act="practice-cancel">Back</button>
   <h2>${d.id?'Edit practice':'New practice'}</h2>
   <div class="split"><section>
    <div class="card">
@@ -2284,11 +2308,43 @@ async function act(a,ds){
     case 'copy-link':{const v=val('joinlink');try{await navigator.clipboard.writeText(v);toast('Join link copied')}catch(e){document.getElementById('joinlink')?.select();toast('Select the link and copy it')}break;}
     case 'invite':{const name=val('inv-name'),email=val('inv-email').toLowerCase();
       if(!name)return err('Add the coach\u2019s name.','err-inv');if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return err('Enter a valid email.','err-inv');
-      chk(await sb.from('coach_invites').insert({email,name,is_approver:false}));S.invites.push({email,name,is_approver:false});render();toast(name+' invited. They\u2019re a coach once they sign in.');break;}
+      chk(await sb.from('coach_invites').insert({email,name,is_approver:false}));S.invites.push({email,name,is_approver:false});ui.justInvited=email;render();toast(name+' added. Now tap Email to send their sign-in steps.');break;}
+    case 'invite-share':{const i=S.invites.find(x=>x.email===ds.email);if(!i)break;const text=inviteText(i);
+      if(navigator.share){try{await navigator.share({title:'Lobos Training Lab coach login',text});}catch(x){}break}
+      try{await navigator.clipboard.writeText(text);toast('Invite copied. Paste it into a text or WhatsApp.')}catch(x){prompt('Copy this invite:',text)}break;}
     default:if(!(await gamedayAct(a,ds)))await practiceAct(a,ds);break;
     case 'invite-remove':chk(await sb.from('coach_invites').delete().eq('email',ds.email));S.invites=S.invites.filter(i=>i.email!==ds.email);render();break;
   }}catch(e){console.error(e);toast(friendly(e))}
 }
+
+// ---- Back navigation: every page you open inside the app gets a browser history entry,
+// so the browser Back button and the iPad/iPhone swipe back step out one level instead of leaving the site.
+function navLayers(){const L=[];if(!S.session)return L;const v=ui.view;
+  if(v==='plans'){if(ui.plan)L.push('plan');if(ui.scan)L.push('scan');if(ui.edit)L.push('edit');if(ui.edit&&ui.dg&&ui.dg.cur!==null&&ui.dg.cur!==undefined)L.push('dg')}
+  else if(v==='practices'){if(ui.practice)L.push('practice');if(ui.pedit)L.push('pedit')}
+  else if(v==='gameday'){if(ui.tb)L.push('tb');if(ui.luView)L.push('luView');if(ui.lu)L.push('lu')}
+  return L}
+let navDepth=0,navSkip=0;
+function navSync(){const d=navLayers().length;
+  if(d>navDepth){for(let i=navDepth;i<d;i++)history.pushState({lobos:i+1},'');navDepth=d}
+  else if(d<navDepth){const n=navDepth-d;navDepth=d;navSkip++;history.go(-n)}}
+const NAV_LEAVE='Leave without saving your changes?';
+async function navBack(){
+  if(ui.view==='gameday'&&ui.tb&&ui.tb.fs)return; // full-screen board: Exit button only
+  const L=navLayers(),top=L[L.length-1];
+  switch(top){
+    case 'dg':return dgAct('dg-done',{});
+    case 'edit':if(confirm(NAV_LEAVE))await act('cancel-edit',{});return;
+    case 'scan':return act('scan-cancel',{});
+    case 'plan':return act('back',{});
+    case 'pedit':if(confirm(NAV_LEAVE))await act('practice-cancel',{});return;
+    case 'practice':return act('practice-back',{});
+    case 'lu':if(confirm(NAV_LEAVE))await act('lu-cancel',{});return;
+    case 'luView':return act('lu-back',{});
+    case 'tb':return act('tb-close',{});
+  }}
+addEventListener('popstate',async()=>{if(navSkip){navSkip--;return}
+  navDepth=Math.max(0,navDepth-1);try{await navBack()}finally{setTimeout(navSync,0)}});
 document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(el){e.preventDefault();if(el.dataset.act.startsWith('dg-'))return dgAct(el.dataset.act,el.dataset);act(el.dataset.act,el.dataset)}});
 document.addEventListener('change',async e=>{const el=e.target;
   if(el.id==='scan-file'){const file=el.files&&el.files[0];if(file)runScan(file);return}
