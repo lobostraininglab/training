@@ -159,6 +159,25 @@ details.card summary{cursor:pointer}
 .picker{max-height:460px;overflow:auto;margin-top:8px}
 .pick{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);padding:10px 2px;color:var(--ink);font:inherit;cursor:pointer}
 .pick .plus{font-size:1.5rem;color:var(--go);font-weight:700;padding:0 6px}
+.pick{cursor:default}
+.pickinfo{flex:1 1 auto;min-width:0;text-align:left;background:none;border:0;padding:4px 2px;color:var(--ink);font:inherit;cursor:pointer;border-radius:8px}
+.pickinfo strong{color:var(--brand);text-decoration:underline;text-decoration-color:rgba(26,127,191,.35);text-underline-offset:3px}
+.pickinfo:hover strong,.pickinfo:focus-visible strong{text-decoration-color:var(--go)}
+.peekhint{display:block;font-size:.78rem;color:var(--go);font-weight:600;margin-top:2px}
+.inpr{display:inline-block;font-size:.72rem;font-weight:700;color:var(--go);background:var(--go-soft);border-radius:999px;padding:1px 8px;vertical-align:2px}
+.addbtn{flex:0 0 auto;background:var(--go-soft);color:var(--brand);border:1.5px solid var(--go);border-radius:999px;font:inherit;font-weight:700;padding:8px 14px;cursor:pointer;min-height:40px}
+.pitlink{background:none;border:0;padding:0;font:inherit;color:var(--brand);font-weight:600;text-align:left;text-decoration:underline;text-decoration-color:rgba(26,127,191,.35);text-underline-offset:3px;cursor:pointer}
+body.peek-open{overflow:hidden}
+.peek{position:fixed;inset:0;z-index:70;background:rgba(11,37,69,.55);display:flex;align-items:flex-end;justify-content:center}
+.peeksheet{background:var(--paper);width:100%;max-width:980px;max-height:92dvh;max-height:92vh;border-radius:16px 16px 0 0;display:flex;flex-direction:column;box-shadow:0 -8px 30px rgba(0,0,0,.25)}
+@supports (height:1dvh){.peeksheet{max-height:92dvh}}
+.peekhead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:16px 18px 10px;border-bottom:1px solid var(--line)}
+.peekhead h2{margin:0 0 2px}.peekhead .meta{margin:0}
+.peekx{flex:0 0 auto;width:44px;height:44px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-size:1.6rem;line-height:1;color:var(--ink);cursor:pointer}
+.peekbody{overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:4px 18px 16px;flex:1 1 auto}
+.peekfoot{display:flex;justify-content:flex-end;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 18px max(12px,env(safe-area-inset-bottom));border-top:1px solid var(--line)}
+@media (min-width:1000px){.peek{align-items:center;padding:24px}.peeksheet{border-radius:16px;max-height:88vh}.peekbody .dsplit .dvis{position:static}}
+@media print{.peek{display:none!important}}
 .pex{margin-top:20px;padding-top:6px;border-top:1px solid var(--line)}
 .pex figure,.pex .fig{max-width:520px}
 .pnote p{margin:.3em 0 0}
@@ -1216,18 +1235,21 @@ function planList(list){
   :`<p class="muted">No plans match. Try another age or theme, or add one with New plan.</p>`;
 }
 function planDetail(p){
-  const sec=(t,v)=>v?`<h3>${t}</h3><p class="phase">${esc(v)}</p>`:'';
   return `<div class="detail"><button class="backbtn" data-act="back">Plans</button>
   <h2>${esc(p.title)}</h2><p class="meta">${esc(p.theme)}. ${bandsText(p)}. ${esc(p.mins)} min. Source: ${esc(srcOf(p))}</p>
-  <div class="dsplit"><div class="dtext1">${sec('Objective',p.objective)}${sec('Setup',p.setup)}${sec('Warm-up',p.warmup)}${sec('Main practice',p.main)}</div>
+  ${planBody(p)}
+  <div class="row" style="margin-top:22px"><button class="btn ghost small" data-act="edit-plan" data-id="${p.id}">Edit plan</button><button class="btn danger small" data-act="delete-plan" data-id="${p.id}">Delete plan</button></div></div>`;
+}
+function planBody(p){
+  const sec=(t,v)=>v?`<h3>${t}</h3><p class="phase">${esc(v)}</p>`:'';
+  return `<div class="dsplit"><div class="dtext1">${sec('Objective',p.objective)}${sec('Setup',p.setup)}${sec('Warm-up',p.warmup)}${sec('Main practice',p.main)}</div>
   <aside class="dvis">${(p.dg||[]).map(svgDiagram).join('')}
   ${p.points&&p.points.length?`<h3>Coaching points</h3><ol class="kp">${p.points.map(x=>`<li><span>${esc(x)}</span></li>`).join('')}</ol>`:''}</aside>
   <div class="dtext2">${sec('Game',p.game)}
   ${sec('Make it easier or harder',p.progress)}
   ${srcOf(p)==='Lobos staff'
     ?(p.link?`<h3>Further reading</h3><p><a href="${esc(p.link)}" target="_blank" rel="noopener">${esc(p.link)}</a></p>`:'')
-    :`<h3>Source</h3><p>Adapted from ${esc(SRC_LONG[srcOf(p)]||srcOf(p))}${p.ref?`: <em>${esc(p.ref)}</em>`:''}. <a href="${esc(p.link)}" target="_blank" rel="noopener">Open the original</a> for the full version.</p>`}</div></div>
-  <div class="row" style="margin-top:22px"><button class="btn ghost small" data-act="edit-plan" data-id="${p.id}">Edit plan</button><button class="btn danger small" data-act="delete-plan" data-id="${p.id}">Delete plan</button></div></div>`;
+    :`<h3>Source</h3><p>Adapted from ${esc(SRC_LONG[srcOf(p)]||srcOf(p))}${p.ref?`: <em>${esc(p.ref)}</em>`:''}. <a href="${esc(p.link)}" target="_blank" rel="noopener">Open the original</a> for the full version.</p>`}</div></div>`;
 }
 function planForm(){
   const blank={title:'',theme:THEMES[0],bands:[],mins:30,objective:'',setup:'',warmup:'',main:'',game:'',points:[],progress:'',link:'',src:'Lobos staff'};
@@ -1537,7 +1559,7 @@ function nav(){
   const tabs=S.session.role==='coach'?[['plans','Plans'],['practices','Practices'],['gameday','Game day'],['homework','Reps'],['squad','Squad'+(S.pending.length?` (${S.pending.length})`:'')],['board','Leaderboard']]:[['today','Today'],['board','Leaderboard'],['badges','Badges'],['family','Family']];
   return `<nav class="tabs" aria-label="Sections"><div class="wrap">${tabs.map(([v,l])=>{const sh={practices:'Practice',gameday:'Games',board:'Ranks'}[v];return `<button data-act="nav" data-v="${v}" ${ui.view===v?'aria-current="page"':''}>${sh?`<span class="tl">${l}</span><span class="ts">${sh}</span>`:l}</button>`}).join('')}</div></nav>`;
 }
-function render(){setTimeout(dgEditing,0);setTimeout(navSync,0);
+function render(){setTimeout(dgEditing,0);if(ui.peek&&!(ui.view==='practices'&&ui.pedit)){ui.peek=null;peekDraw()}setTimeout(navSync,0);
   const app=document.getElementById('app');
   if(BOOT.state==='loading'){app.innerHTML=`<div class="login">${WORDMARK}<p class="muted">Loading\u2026</p></div>`;return}
   if(BOOT.state==='error'){app.innerHTML=`<div class="login">${WORDMARK}<p class="err">${esc(BOOT.msg)}</p><button class="btn" data-act="retry">Try again</button> <button class="link" data-act="logout">Sign out</button></div>`;return}
@@ -2134,11 +2156,22 @@ function practiceDetail(p){
   ${ex||'<p class="muted">No exercises in this practice yet.</p>'}`;
 }
 
-function pickList(c){return c.map(p=>`<button class="pick" data-act="pi-add" data-id="${p.id}"><span><strong>${esc(p.title)}</strong><br><span class="small muted">${esc(p.theme)}. ${bandsText(p)}. ${p.mins} min. ${esc(srcOf(p))}</span></span><span class="plus" aria-hidden="true">+</span></button>`).join('')||'<p class="muted small">No sessions match.</p>'}
+function pickList(c){const used=new Set(((ui.draft&&ui.draft.items)||[]).map(i=>i.plan_id));
+  return c.map(p=>`<div class="pick"><button class="pickinfo" data-act="pi-peek" data-id="${p.id}" aria-label="Preview ${esc(p.title)}"><strong>${esc(p.title)}</strong>${used.has(p.id)?' <span class="inpr">In practice</span>':''}<br><span class="small muted">${esc(p.theme)}. ${bandsText(p)}. ${p.mins} min. ${esc(srcOf(p))}</span><span class="peekhint">Tap to preview</span></button><button class="addbtn" data-act="pi-add" data-id="${p.id}" aria-label="Add ${esc(p.title)}">+ Add</button></div>`).join('')||'<p class="muted small">No sessions match.</p>'}
+// Session preview while building a practice. Lives outside #app so the form, search and list scroll stay put.
+function peekHTML(){const p=ui.peek&&S.plans.find(x=>x.id===ui.peek);if(!p)return '';
+  const n=((ui.draft&&ui.draft.items)||[]).filter(i=>i.plan_id===p.id).length;
+  return `<div class="peek" data-act="pi-peek-close" data-bg="1"><div class="peeksheet" role="dialog" aria-modal="true" aria-label="${esc(p.title)}">
+    <div class="peekhead"><div><h2>${esc(p.title)}</h2><p class="meta">${esc(p.theme)}. ${bandsText(p)}. ${esc(p.mins)} min. Source: ${esc(srcOf(p))}</p></div><button class="peekx" data-act="pi-peek-close" aria-label="Close">×</button></div>
+    <div class="peekbody detail">${planBody(p)}</div>
+    <div class="peekfoot">${n?`<span class="small muted">Already in this practice${n>1?' ('+n+'x)':''}</span>`:''}<button class="btn ghost" data-act="pi-peek-close">Close</button><button class="btn" data-act="pi-peek-add" data-id="${p.id}">${n?'Add again':'Add to practice'}</button></div>
+  </div></div>`}
+function peekDraw(){let root=document.getElementById('peek-root');if(!root){root=document.createElement('div');root.id='peek-root';document.body.appendChild(root)}
+  root.innerHTML=peekHTML();document.body.classList.toggle('peek-open',!!root.innerHTML);const b=root.querySelector('.peekbody');if(b)b.scrollTop=0;navSync()}
 function pickCands(){const q=(ui.pq||'').toLowerCase().trim();return S.plans.filter(p=>!q||(p.title+' '+p.theme+' '+srcOf(p)+' '+(p.bands||[]).join(' ')).toLowerCase().includes(q))}
 function practiceEditor(){
   const d=ui.draft;const total=d.items.reduce((n,i)=>n+(+i.minutes||0),0);
-  const items=d.items.map((it,i)=>`<div class="pitem"><span class="pnum">${i+1}</span><span class="pit">${esc(it.title)}</span>
+  const items=d.items.map((it,i)=>`<div class="pitem"><span class="pnum">${i+1}</span><span class="pit">${it.plan_id&&S.plans.some(x=>x.id===it.plan_id)?`<button class="pitlink" data-act="pi-peek" data-id="${it.plan_id}">${esc(it.title)}</button>`:esc(it.title)}</span>
     <input type="number" inputmode="numeric" min="0" max="180" value="${+it.minutes||0}" data-change="pi-min" data-i="${i}" aria-label="Minutes for ${esc(it.title)}"><span class="small muted">min</span>
     <span class="pbtns"><button class="link" data-act="pi-up" data-i="${i}" ${i?'':'disabled'} aria-label="Move up">Move up</button><button class="link" data-act="pi-down" data-i="${i}" ${i<d.items.length-1?'':'disabled'} aria-label="Move down">Move down</button><button class="link danger" data-act="pi-remove" data-i="${i}">Remove</button></span></div>`).join('');
   return `<button class="backbtn" data-act="practice-cancel">Back</button>
@@ -2182,7 +2215,10 @@ async function practiceAct(a,ds){
     case 'edit-practice':{const p=S.practices.find(x=>x.id===ds.id);if(!p)return;ui.draft={id:p.id,team:p.team,day:p.day,title:p.title,notes:p.notes,items:p.items.map(i=>({...i}))};ui.pedit=p.id;ui.pq='';render();window.scrollTo(0,0);break;}
     case 'copy-practice':{const p=S.practices.find(x=>x.id===ds.id);if(!p)return;ui.draft={team:p.team,day:today(),title:p.title,notes:p.notes,items:p.items.map(i=>({...i}))};ui.pedit='new';ui.pq='';render();window.scrollTo(0,0);toast('Copied. Pick a date and save.');break;}
     case 'practice-cancel':ui.pedit=null;ui.draft=null;render();break;
-    case 'pi-add':{syncDraft();const p=S.plans.find(x=>x.id===ds.id);if(!p||!d)return;d.items.push({plan_id:p.id,title:p.title,minutes:p.mins});render();toast('Added: '+p.title);break;}
+    case 'pi-peek':{syncDraft();ui.peek=ds.id;peekDraw();break;}
+    case 'pi-peek-close':ui.peek=null;peekDraw();break;
+    case 'pi-peek-add':{ui.peek=null;peekDraw();await practiceAct('pi-add',ds);break;}
+    case 'pi-add':{syncDraft();const pk=document.getElementById('picker'),pst=pk?pk.scrollTop:0;setTimeout(()=>{const k=document.getElementById('picker');if(k)k.scrollTop=pst},0);const p=S.plans.find(x=>x.id===ds.id);if(!p||!d)return;d.items.push({plan_id:p.id,title:p.title,minutes:p.mins});render();toast('Added: '+p.title);break;}
     case 'pi-up':case 'pi-down':{syncDraft();const i=+ds.i,j=a==='pi-up'?i-1:i+1;if(!d||j<0||j>=d.items.length)return;[d.items[i],d.items[j]]=[d.items[j],d.items[i]];render();break;}
     case 'pi-remove':syncDraft();if(d){d.items.splice(+ds.i,1);render()}break;
     case 'practice-save':{syncDraft();if(!d)return;
@@ -2321,7 +2357,7 @@ async function act(a,ds){
 // so the browser Back button and the iPad/iPhone swipe back step out one level instead of leaving the site.
 function navLayers(){const L=[];if(!S.session)return L;const v=ui.view;
   if(v==='plans'){if(ui.plan)L.push('plan');if(ui.scan)L.push('scan');if(ui.edit)L.push('edit');if(ui.edit&&ui.dg&&ui.dg.cur!==null&&ui.dg.cur!==undefined)L.push('dg')}
-  else if(v==='practices'){if(ui.practice)L.push('practice');if(ui.pedit)L.push('pedit')}
+  else if(v==='practices'){if(ui.practice)L.push('practice');if(ui.pedit)L.push('pedit');if(ui.pedit&&ui.peek)L.push('peek')}
   else if(v==='gameday'){if(ui.tb)L.push('tb');if(ui.luView)L.push('luView');if(ui.lu)L.push('lu')}
   return L}
 let navDepth=0,navSkip=0;
@@ -2337,6 +2373,7 @@ async function navBack(){
     case 'edit':if(confirm(NAV_LEAVE))await act('cancel-edit',{});return;
     case 'scan':return act('scan-cancel',{});
     case 'plan':return act('back',{});
+    case 'peek':ui.peek=null;peekDraw();return;
     case 'pedit':if(confirm(NAV_LEAVE))await act('practice-cancel',{});return;
     case 'practice':return act('practice-back',{});
     case 'lu':if(confirm(NAV_LEAVE))await act('lu-cancel',{});return;
@@ -2345,7 +2382,9 @@ async function navBack(){
   }}
 addEventListener('popstate',async()=>{if(navSkip){navSkip--;return}
   navDepth=Math.max(0,navDepth-1);try{await navBack()}finally{setTimeout(navSync,0)}});
-document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(el){e.preventDefault();if(el.dataset.act.startsWith('dg-'))return dgAct(el.dataset.act,el.dataset);act(el.dataset.act,el.dataset)}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&ui.peek){ui.peek=null;peekDraw()}});
+document.addEventListener('click',e=>{const bg=e.target.closest('[data-bg]');if(bg&&e.target!==bg)if(!e.target.closest('.peeksheet [data-act]'))return;
+  const el=e.target.closest('[data-act]');if(el){e.preventDefault();if(el.dataset.act.startsWith('dg-'))return dgAct(el.dataset.act,el.dataset);act(el.dataset.act,el.dataset)}});
 document.addEventListener('change',async e=>{const el=e.target;
   if(el.id==='scan-file'){const file=el.files&&el.files[0];if(file)runScan(file);return}
   if(el.dataset.change==='hw-target'){const h=S.homework[ui.team][+el.dataset.i];const v=el.value.trim();
