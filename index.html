@@ -157,6 +157,7 @@ details.card summary{cursor:pointer}
 .pitem .pbtns button[disabled]{opacity:.35}
 .pnum{display:inline-grid;place-items:center;min-width:24px;height:24px;border-radius:50%;background:var(--brand);color:var(--brand-ink);font-size:.8rem;font-weight:700;margin-right:8px;vertical-align:middle}
 .picker{max-height:460px;overflow:auto;margin-top:8px}
+.pchips{margin-top:8px}.pchips .chips{margin:6px 0}
 .pick{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);padding:10px 2px;color:var(--ink);font:inherit;cursor:pointer}
 .pick .plus{font-size:1.5rem;color:var(--go);font-weight:700;padding:0 6px}
 .pick{cursor:default}
@@ -2157,7 +2158,7 @@ function practiceDetail(p){
 }
 
 function pickList(c){const used=new Set(((ui.draft&&ui.draft.items)||[]).map(i=>i.plan_id));
-  return c.map(p=>`<div class="pick"><button class="pickinfo" data-act="pi-peek" data-id="${p.id}" aria-label="Preview ${esc(p.title)}"><strong>${esc(p.title)}</strong>${used.has(p.id)?' <span class="inpr">In practice</span>':''}<br><span class="small muted">${esc(p.theme)}. ${bandsText(p)}. ${p.mins} min. ${esc(srcOf(p))}</span><span class="peekhint">Tap to preview</span></button><button class="addbtn" data-act="pi-add" data-id="${p.id}" aria-label="Add ${esc(p.title)}">+ Add</button></div>`).join('')||'<p class="muted small">No sessions match.</p>'}
+  return c.map(p=>`<div class="pick"><button class="pickinfo" data-act="pi-peek" data-id="${p.id}" aria-label="Preview ${esc(p.title)}"><strong>${esc(p.title)}</strong>${used.has(p.id)?' <span class="inpr">In practice</span>':''}<br><span class="small muted">${esc(p.theme)}. ${bandsText(p)}. ${p.mins} min. ${esc(srcOf(p))}</span><span class="peekhint">Tap to preview</span></button><button class="addbtn" data-act="pi-add" data-id="${p.id}" aria-label="Add ${esc(p.title)}">+ Add</button></div>`).join('')||'<p class="muted small">No sessions match. <button class="link" data-act="pf-clear">Clear filters</button></p>'}
 // Session preview while building a practice. Lives outside #app so the form, search and list scroll stay put.
 function peekHTML(){const p=ui.peek&&S.plans.find(x=>x.id===ui.peek);if(!p)return '';
   const n=((ui.draft&&ui.draft.items)||[]).filter(i=>i.plan_id===p.id).length;
@@ -2168,7 +2169,12 @@ function peekHTML(){const p=ui.peek&&S.plans.find(x=>x.id===ui.peek);if(!p)retur
   </div></div>`}
 function peekDraw(){let root=document.getElementById('peek-root');if(!root){root=document.createElement('div');root.id='peek-root';document.body.appendChild(root)}
   root.innerHTML=peekHTML();document.body.classList.toggle('peek-open',!!root.innerHTML);const b=root.querySelector('.peekbody');if(b)b.scrollTop=0;navSync()}
-function pickCands(){const q=(ui.pq||'').toLowerCase().trim();return S.plans.filter(p=>!q||(p.title+' '+p.theme+' '+srcOf(p)+' '+(p.bands||[]).join(' ')).toLowerCase().includes(q))}
+function pickChips(){const B=ui.pband||'All',R=ui.psrc||'All',T=ui.ptheme||'All';
+  return `<div class="chips wrapdesk" role="group" aria-label="Filter by age">${['All',...BANDS].map(b=>`<button class="chip" data-act="pf-band" data-v="${b}" aria-pressed="${B===b}">${b==='All'?'All ages':'Ages '+bandLabel(b)}</button>`).join('')}</div>
+    <div class="chips wrapdesk" role="group" aria-label="Filter by source">${['All',...SOURCES].map(v=>`<button class="chip" data-act="pf-src" data-v="${esc(v)}" aria-pressed="${R===v}">${v==='All'?'All sources':esc(v)}</button>`).join('')}</div>
+    <div class="chips wrapdesk" role="group" aria-label="Filter by theme">${['All',...THEMES].map(t=>`<button class="chip" data-act="pf-theme" data-v="${esc(t)}" aria-pressed="${T===t}">${esc(t)}</button>`).join('')}</div>`}
+function pickRefresh(){const c=document.getElementById('pchips'),cur={'pf-band':ui.pband||'All','pf-src':ui.psrc||'All','pf-theme':ui.ptheme||'All'};if(c)c.querySelectorAll('.chip').forEach(x=>x.setAttribute('aria-pressed',String(cur[x.dataset.act]===x.dataset.v)));const n=pickCands(),el=document.getElementById('picker'),k=document.getElementById('pcount');if(el){el.innerHTML=pickList(n);el.scrollTop=0}if(k)k.textContent=n.length+' of '+S.plans.length}
+function pickCands(){const q=(ui.pq||'').toLowerCase().trim(),B=ui.pband||'All',R=ui.psrc||'All',T=ui.ptheme||'All';return S.plans.filter(p=>(R==='All'||srcOf(p)===R)&&(T==='All'||p.theme===T)&&(B==='All'||(p.bands||[]).includes(B))).filter(p=>!q||(p.title+' '+p.theme+' '+srcOf(p)+' '+(p.bands||[]).join(' ')).toLowerCase().includes(q))}
 function practiceEditor(){
   const d=ui.draft;const total=d.items.reduce((n,i)=>n+(+i.minutes||0),0);
   const items=d.items.map((it,i)=>`<div class="pitem"><span class="pnum">${i+1}</span><span class="pit">${it.plan_id&&S.plans.some(x=>x.id===it.plan_id)?`<button class="pitlink" data-act="pi-peek" data-id="${it.plan_id}">${esc(it.title)}</button>`:esc(it.title)}</span>
@@ -2188,8 +2194,9 @@ function practiceEditor(){
    <p class="err" id="err"></p>
    <div class="row"><button class="btn" data-act="practice-save">Save practice</button>${d.id?`<button class="link danger" data-act="practice-delete" data-id="${d.id}">Delete practice</button>`:''}</div>
   </section><section>
-   <div class="card"><h3 style="margin-top:0">Add from the library</h3>
+   <div class="card"><div class="row between"><h3 style="margin:0">Add from the library</h3><span class="small muted" id="pcount">${pickCands().length} of ${S.plans.length}</span></div>
     <input id="pq" placeholder="Search: rondo, finishing, 9-12, FA..." value="${esc(ui.pq||'')}" aria-label="Search sessions" autocomplete="off">
+    <div id="pchips" class="pchips">${pickChips()}</div>
     <div class="picker" id="picker">${pickList(pickCands())}</div></div>
   </section></div>`;
 }
@@ -2215,6 +2222,10 @@ async function practiceAct(a,ds){
     case 'edit-practice':{const p=S.practices.find(x=>x.id===ds.id);if(!p)return;ui.draft={id:p.id,team:p.team,day:p.day,title:p.title,notes:p.notes,items:p.items.map(i=>({...i}))};ui.pedit=p.id;ui.pq='';render();window.scrollTo(0,0);break;}
     case 'copy-practice':{const p=S.practices.find(x=>x.id===ds.id);if(!p)return;ui.draft={team:p.team,day:today(),title:p.title,notes:p.notes,items:p.items.map(i=>({...i}))};ui.pedit='new';ui.pq='';render();window.scrollTo(0,0);toast('Copied. Pick a date and save.');break;}
     case 'practice-cancel':ui.pedit=null;ui.draft=null;render();break;
+    case 'pf-clear':{ui.pband=ui.psrc=ui.ptheme='All';ui.pq='';const q=document.getElementById('pq');if(q)q.value='';pickRefresh();break;}
+    case 'pf-band':ui.pband=ds.v;pickRefresh();break;
+    case 'pf-src':ui.psrc=ds.v;pickRefresh();break;
+    case 'pf-theme':ui.ptheme=ds.v;pickRefresh();break;
     case 'pi-peek':{syncDraft();ui.peek=ds.id;peekDraw();break;}
     case 'pi-peek-close':ui.peek=null;peekDraw();break;
     case 'pi-peek-add':{ui.peek=null;peekDraw();await practiceAct('pi-add',ds);break;}
@@ -2389,7 +2400,7 @@ document.addEventListener('change',async e=>{const el=e.target;
   if(el.id==='scan-file'){const file=el.files&&el.files[0];if(file)runScan(file);return}
   if(el.dataset.change==='hw-target'){const h=S.homework[ui.team][+el.dataset.i];const v=el.value.trim();
     try{chk(await sb.from('homework').update({target:v}).match({team_id:ui.team,drill_id:h.d}));h.target=v;toast('Target updated')}catch(x){toast(friendly(x))}}});
-document.addEventListener('input',e=>{if(e.target.id==='dg-cap'){const d=dgCur();if(d)d.cap=e.target.value;return}if(e.target.id==='pq'){ui.pq=e.target.value;const el=document.getElementById('picker');if(el)el.innerHTML=pickList(pickCands());return}if(e.target.id==='q'){ui.q=e.target.value;document.getElementById('planlist').innerHTML=planList(filterPlans())}});
+document.addEventListener('input',e=>{if(e.target.id==='dg-cap'){const d=dgCur();if(d)d.cap=e.target.value;return}if(e.target.id==='pq'){ui.pq=e.target.value;pickRefresh();return}if(e.target.id==='q'){ui.q=e.target.value;document.getElementById('planlist').innerHTML=planList(filterPlans())}});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='lemail')act('send-link',{})});
 render();boot();
 
