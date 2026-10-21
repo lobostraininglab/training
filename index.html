@@ -162,6 +162,7 @@ details.card summary{cursor:pointer}
 .pex.exdone h3{opacity:.75}
 .donechk{display:flex;gap:8px;align-items:center;margin:6px 0;font-weight:600}
 .leftover{border-color:#F2C14E;background:#FFFBEF}
+.chpick{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
 .attsum{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
 .attpill{font-size:.78rem;font-weight:700;border-radius:999px;padding:3px 10px;background:var(--soft);color:var(--muted)}
 .attpill.present{background:#E3F5E8;color:#1E7B34}.attpill.late{background:#FFF4D6;color:#8A5A00}.attpill.absent{background:#FDE7EA;color:#B0182E}.attpill.excused{background:#ECEFF4;color:#4A5568}
@@ -1396,7 +1397,7 @@ function friendly(e){const m=String((e&&(e.message||e.error_description))||e||''
   if(/not authorized|permission|row-level|violates/i.test(m))return 'You don\u2019t have permission to do that.';
   if(/only an approver/i.test(m))return 'Only the head approver can approve or remove players.';
   return m||'Something went wrong. Please try again.'}
-const mapPlayer=r=>({id:r.id,team:r.team_id,req:r.requested_team_id||r.team_id,name:r.display_name,status:r.status});
+const mapPlayer=r=>({id:r.id,team:r.team_id,req:r.requested_team_id||r.team_id,name:r.display_name,status:r.status,roster:r.roster_id||null});
 const mapDrill=r=>({id:r.id,name:r.name,how:r.how||'',target:r.default_target||'',video:r.video_url||''});
 function mapPlan(r){const c=S.coaches.find(c=>c.id===r.created_by);return {id:r.id,title:r.title,theme:r.theme,bands:r.age_bands||[],mins:r.minutes||60,objective:r.objective||'',setup:r.setup||'',warmup:r.warmup||'',main:r.main||'',game:r.game||'',points:r.coaching_points||[],progress:r.progressions||'',link:r.link||'',src:r.src||'Lobos staff',ref:r.ref||'',dg:r.diagrams||[],by:c?c.name:'',updated:r.updated_at||''}}
 function planRow(p){return {title:p.title,theme:p.theme,age_bands:p.bands||[],minutes:p.mins||60,objective:p.objective,setup:p.setup,warmup:p.warmup,main:p.main,game:p.game,coaching_points:p.points||[],progressions:p.progress,link:p.link||null,src:p.src||'Lobos staff',ref:p.ref||null,diagrams:p.dg||[]}}
@@ -1443,7 +1444,7 @@ async function loadCoachData(){
   const [plans,hw,players,logs,days,invites,tcs,prs,bds,lus,ros,att]=await Promise.all([
     all(()=>sb.from('plans').select('*')),
     all(()=>sb.from('homework').select('*').order('position')),
-    all(()=>sb.from('players').select('id,team_id,requested_team_id,display_name,status,created_at').order('created_at')),
+    all(()=>sb.from('players').select('*').order('created_at')),
     all(()=>sb.from('rep_logs').select('player_id,drill_id,day').gte('day',addDays(today(),-35))),
     all(()=>sb.from('complete_days').select('player_id,day')),
     S.session.approver?all(()=>sb.from('coach_invites').select('email,name,is_approver')):Promise.resolve([]),
@@ -1515,11 +1516,19 @@ function consentView(){
     <p class="small muted">Signed in as ${esc(S.session.email)}. <button class="link" data-act="logout">Sign out</button></p></div>`;
 }
 function childForm(){
-  const j=joinCode(),pre=(S.teams.find(t=>t.code===j)||{}).id||'';
-  return `<label for="ch-name">Player\u2019s first name and last initial</label><input id="ch-name" placeholder="Mateo R." maxlength="32" autocomplete="off">
-    <label for="ch-team">Team</label><select id="ch-team"><option value="">Choose a team</option>${S.teams.map(t=>`<option value="${t.id}" ${t.id===pre?'selected':''}>${esc(t.name)}</option>`).join('')}</select>
+  const j=joinCode(),pre=(S.teams.find(t=>t.code===j)||{}).id||'';if(pre)setTimeout(()=>chPickLoad(pre),0);
+  return `<label for="ch-team">Team</label><select id="ch-team"><option value="">Choose a team</option>${S.teams.map(t=>`<option value="${t.id}" ${t.id===pre?'selected':''}>${esc(t.name)}</option>`).join('')}</select>
+    <input type="hidden" id="ch-roster" value=""><div id="ch-pick"></div>
+    <label for="ch-name" id="ch-name-lab">Player\u2019s first name and last initial</label><input id="ch-name" placeholder="Mateo R." maxlength="32" autocomplete="off">
     <p class="err" id="err"></p><button class="btn" style="width:100%" data-act="add-child">Add player</button>`;
 }
+// The coach's roster for that team: the parent taps their child instead of typing a new name.
+async function chPickLoad(t){const box=document.getElementById('ch-pick'),hid=document.getElementById('ch-roster'),lab=document.getElementById('ch-name-lab');if(!box)return;
+  if(hid)hid.value='';box.innerHTML='';if(lab)lab.textContent='Player\u2019s first name and last initial';if(!t)return;
+  let rows=[];try{const {data,error}=await sb.rpc('roster_pick',{p_team:t});if(error)throw error;rows=data||[]}catch(e){rows=[]}
+  if((document.getElementById('ch-team')||{}).value!==t||!rows.length)return;
+  box.innerHTML=`<p class="small" style="margin:10px 0 6px"><strong>Tap your child\u2019s name</strong></p><div class="chpick">${rows.map(r=>`<button class="chip" data-act="ch-pick" data-id="${r.id}" data-name="${esc(r.name)}" aria-pressed="false">${esc(r.name)}</button>`).join('')}</div>`;
+  if(lab)lab.textContent='Not on the list? Type their first name and last initial'}
 function firstChildView(){
   return `<div class="login">${WORDMARK}<h2>Add your player</h2>
     <p class="muted small">Use first name and last initial only. A coach approves every new player before they appear on the team.</p>
@@ -1575,7 +1584,7 @@ function rosterCard(t){const ed=canEdit(t),rs=rosterOf(t),days=attDays(t).slice(
     <p class="small muted" style="margin:4px 0 8px">${esc(fmtDay(day))}${pr?`. Practice: ${esc(pr.title||'planned')}`:''}</p>
     ${attSheet(t,day,'squad')}</div>
   <div class="card"><div class="row between"><h3 style="margin:0">Roster (${rs.length})</h3>${days.length?`<span class="small muted">Last ${days.length} session${days.length===1?'':'s'}</span>`:''}</div>
-    ${rs.map(r=>{const {n,c}=attRate(r,days);return `<div class="squad"><span>${r.number?`<span class="jn">${esc(r.number)}</span>`:''}<strong>${esc(r.name)}</strong><br><span class="small muted">${n?`Came to ${c} of ${n}`:'No attendance yet'}</span></span>
+    ${rs.map(r=>{const {n,c}=attRate(r,days);return `<div class="squad"><span>${r.number?`<span class="jn">${esc(r.number)}</span>`:''}<strong>${esc(r.name)}</strong>${S.players.some(p=>p.roster===r.id)?' <span class="inpr">Parent linked</span>':''}<br><span class="small muted">${n?`Came to ${c} of ${n}`:'No attendance yet'}</span></span>
       <span class="small ${n&&c/n<.6?'late':'muted'}">${n?Math.round(c/n*100)+'%':''}</span>
       ${ed?`<button class="link" data-act="roster-remove" data-id="${r.id}">Remove</button>`:'<span></span>'}</div>`}).join('')||'<p class="muted small">No players on this roster yet.</p>'}
     ${ed?`<h3 style="margin-top:14px">Add a player</h3><p class="small muted">First name and last initial only, like the rest of the site. A full name is shortened for you.</p>
@@ -1597,13 +1606,17 @@ async function attAct(a,ds){const keep=()=>{const y=window.scrollY;ui.attOpen=!!
     S.roster.push({id:saved.id,team:ds.t,name,number:num,active:true});toast(name+' added');return keep()}
   if(a==='roster-remove'){const r=S.roster.find(x=>x.id===ds.id);if(!r||!confirm(`Take ${r.name} off the roster? Their past attendance is kept.`))return;
     chk(await sb.from('roster').update({active:false}).eq('id',r.id));r.active=false;return keep()}}
+// Which roster kid a signup belongs to: the one the parent tapped, else the same name on that team. Never makes a second copy.
+function rosterMatch(p,t){const claimed=new Set(S.players.filter(x=>x.id!==p.id&&x.roster).map(x=>x.roster));
+  const picked=p.roster&&S.roster.find(r=>r.id===p.roster&&r.team===t);if(picked)return picked;
+  return S.roster.find(r=>r.team===t&&r.name.toLowerCase()===String(p.name).toLowerCase()&&!claimed.has(r.id))||null}
 function squadView(){
   const chips=teamChips();const T=today();const t=team(ui.team);const ap=S.session.approver;
   const ps=S.players.filter(p=>p.team===ui.team);
   const doneToday=ps.filter(p=>dayset(p.id).has(T)).length;
   const link=location.origin+location.pathname+'?join='+encodeURIComponent(t.code);
   const pend=S.pending.length?`<div class="card pendq"><h3>Waiting for approval (${S.pending.length})</h3>
-    ${S.pending.map(p=>`<div class="pend"><span><strong>${esc(p.name)}</strong><br><span class="small muted">Requested ${esc((team(p.req)||{}).name||'')}</span></span>
+    ${S.pending.map(p=>`<div class="pend"><span><strong>${esc(p.name)}</strong><br><span class="small muted">Requested ${esc((team(p.req)||{}).name||'')}${S.attReady?(rosterMatch(p,p.req)?'. On the roster':'. New, will be added to the roster'):''}</span></span>
       ${ap?`<select id="ap-${p.id}" aria-label="Team for ${esc(p.name)}">${S.teams.map(x=>`<option value="${x.id}" ${x.id===p.req?'selected':''}>${esc(x.name)}</option>`).join('')}</select>
       <span class="row"><button class="btn small go" data-act="approve" data-id="${p.id}">Approve</button><button class="link" data-act="decline" data-id="${p.id}">Decline</button></span>`
       :`<span class="small muted">Jason approves new players</span>`}</div>`).join('')}</div>`:'';
@@ -2100,7 +2113,12 @@ document.addEventListener('pointercancel',()=>{if(ui.tb&&ui.tb.drag){ui.tb.drag=
 /* ----- Lineup sheets (team coaches edit; everyone views and prints) ----- */
 const mapLineup=r=>({id:r.id,team:r.team_id,day:r.day,kickoff:r.kickoff||'',opponent:r.opponent||'',location:r.location||'',format:r.format,formation:r.formation,slots:Array.isArray(r.slots)?r.slots:[],subs:Array.isArray(r.subs)?r.subs:[],notes:r.notes||'',board:r.board_id||'',by:r.created_by});
 const mapBoard=r=>({id:r.id,title:r.title,format:r.format,notes:r.notes||'',data:r.data||{},by:r.created_by,updated:r.updated_at||''});
-function luPlayerName(id,fallback){const p=player(id);return p?p.name:(fallback?fallback+' (removed)':'')}
+// Lineup choices: the team roster (Squad tab) plus any approved app players not already on it.
+function luRoster(t){const rs=(S.roster||[]).filter(r=>r.team===t&&r.active).map(r=>({id:r.id,name:r.name,number:r.number}));
+  const have=new Set(rs.map(r=>r.name.toLowerCase()));
+  S.players.filter(p=>p.team===t&&!have.has(String(p.name).toLowerCase())).forEach(p=>rs.push({id:p.id,name:p.name,number:''}));
+  return rs.sort((a,b)=>a.name.localeCompare(b.name))}
+function luPlayerName(id,fallback){if(!id)return fallback||'';const p=player(id)||(S.roster||[]).find(r=>r.id===id);return p?p.name:(fallback?fallback:'')}
 function luLineupSVG(l){const id='luah'+(gdN++);
   const dots=l.slots.map(s=>gdDot(s.x,s.y,s.pos==='GK'?DCOL.K:DCOL.A,s.pos,s.player_id?luPlayerName(s.player_id,s.name):'')).join('');
   return gdPitch(dots,id)}
@@ -2113,8 +2131,11 @@ function luSync(){const d=ui.lu;if(!d)return;const g=id=>document.getElementById
   if(g('lu-board'))d.board=g('lu-board').value;
   d.slots.forEach((s,i)=>{const el=g('lu-s'+i);if(el)s.player_id=el.value});
   d.subs=[...document.querySelectorAll('[data-sub]')].filter(x=>x.checked).map(x=>x.dataset.sub)}
-function luEditorView(){const d=ui.lu;const roster=S.players.filter(p=>p.team===d.team).sort((a,b)=>a.name.localeCompare(b.name));
-  const opts=sel=>`<option value="">Choose a player</option>`+roster.map(p=>`<option value="${p.id}" ${p.id===sel?'selected':''}>${esc(p.name)}</option>`).join('');
+function luSubsHTML(d){const used=new Set(d.slots.map(s=>s.player_id).filter(Boolean));
+  return luRoster(d.team).filter(p=>!used.has(p.id)).map(p=>`<label class="check"><input type="checkbox" data-sub="${p.id}" ${d.subs.includes(p.id)?'checked':''}> ${esc((p.number?'#'+p.number+' ':'')+p.name)}</label>`).join('')||'<p class="small muted">Everyone on the roster is starting.</p>'}
+function luEditorView(){const d=ui.lu;const roster=luRoster(d.team);
+  const lab=p=>(p.number?'#'+p.number+' ':'')+p.name;
+  const opts=sel=>`<option value="">Choose a player</option>`+roster.map(p=>`<option value="${p.id}" ${p.id===sel?'selected':''}>${esc(lab(p))}</option>`).join('');
   const used=new Set(d.slots.map(s=>s.player_id).filter(Boolean));
   return `<button class="backbtn" data-act="lu-cancel">Back</button><h2>${d.id?'Edit game day sheet':'New game day sheet'}</h2>
   <div class="gdboard"><section>
@@ -2125,9 +2146,9 @@ function luEditorView(){const d=ui.lu;const roster=S.players.filter(p=>p.team===
     <label for="lu-location">Location</label><input id="lu-location" value="${esc(d.location)}" placeholder="Home, field 3">
     <label>Format</label><div class="chips">${GD_FORMATS.map(f=>`<button class="chip" data-act="lu-format" data-v="${f}" aria-pressed="${d.format===f}">${f}</button>`).join('')}</div>
     <label for="lu-shape">Formation</label><select id="lu-shape">${GD_SHAPES[d.format].map(s=>`<option ${s===d.formation?'selected':''}>${s}</option>`).join('')}</select></div>
-   <div class="card"><h3 style="margin-top:0">Starting lineup</h3>${roster.length?'':'<p class="small err">No approved players on this team yet. Approve players in Squad first, or type names in the notes.</p>'}
+   <div class="card"><h3 style="margin-top:0">Starting lineup</h3>${roster.length?'':'<p class="small err">No players on this team yet. Add them to the roster in the Squad tab, then come back.</p>'}
     ${d.slots.map((s,i)=>`<div class="luslot"><span class="lupos">${esc(s.pos)}</span><select id="lu-s${i}" data-change="lu-slot" aria-label="${esc(s.pos)}">${opts(s.player_id)}</select></div>`).join('')}</div>
-   <div class="card"><h3 style="margin-top:0">Substitutes</h3>${roster.filter(p=>!used.has(p.id)).map(p=>`<label class="check"><input type="checkbox" data-sub="${p.id}" ${d.subs.includes(p.id)?'checked':''}> ${esc(p.name)}</label>`).join('')||'<p class="small muted">Everyone on the roster is starting.</p>'}</div>
+   <div class="card"><h3 style="margin-top:0">Substitutes</h3><div id="lu-subs">${luSubsHTML(d)}</div></div>
   </section><section>
    <div id="lu-pitch" class="lupitch">${luLineupSVG(d)}</div>
    <div class="card"><label for="lu-board">Attach a tactical setup (optional)</label><select id="lu-board"><option value="">None</option>${S.boards.filter(b=>b.format===d.format).map(b=>`<option value="${b.id}" ${b.id===d.board?'selected':''}>${esc(b.title)}</option>`).join('')}</select>
@@ -2214,13 +2235,15 @@ async function gamedayAct(a,ds){
 }
 // Live updates inside the lineup editor without losing what's been typed.
 document.addEventListener('change',e=>{const el=e.target;
+  if(el.id==='ch-team'){chPickLoad(el.value);return}
   if(el.id==='att-day'){ui.attDay=el.value||today();const y=window.scrollY;render();window.scrollTo(0,y);return}
   if(el.id==='pr-team'&&ui.draft){syncDraft();const y=window.scrollY;render();window.scrollTo(0,y);return}
   if(ui.tb&&el.id==='tb-shape'){const T=ui.tb;tbSnap();T.formation=el.value;T.items=gdItems(T.format,T.formation,T.opp);tbRefresh()}
   else if(ui.tb&&el.id==='tb-opp'){const T=ui.tb;tbSnap();T.opp=el.checked;T.items=T.opp?[...T.items.filter(x=>x[0]!=='D'),...gdShape(T.format,T.formation).map(p=>['D',100-p.x,150-p.y,p.pos])]:T.items.filter(x=>x[0]!=='D');tbRefresh()}
   else if(ui.lu&&el.id==='lu-shape'){luSync();ui.lu.formation=el.value;luReshape(ui.lu);render()}
   else if(ui.lu&&el.id==='lu-team'){luSync();ui.lu.team=el.value;ui.lu.slots.forEach(s=>s.player_id='');ui.lu.subs=[];render()}
-  else if(ui.lu&&(el.dataset.change==='lu-slot'||el.dataset.sub!==undefined)){luSync();const p=document.getElementById('lu-pitch');if(p)p.innerHTML=luLineupSVG(ui.lu)}
+  else if(ui.lu&&(el.dataset.change==='lu-slot'||el.dataset.sub!==undefined)){luSync();const p=document.getElementById('lu-pitch');if(p)p.innerHTML=luLineupSVG(ui.lu);
+    if(el.dataset.change==='lu-slot'){const used=new Set(ui.lu.slots.map(s=>s.player_id).filter(Boolean));ui.lu.subs=ui.lu.subs.filter(id=>!used.has(id));const sb2=document.getElementById('lu-subs');if(sb2)sb2.innerHTML=luSubsHTML(ui.lu)}}
 });
 
 /* ===== Practices and team assignments ===== */
@@ -2471,10 +2494,16 @@ async function act(a,ds){
     /* guardian */
     case 'consent':{if(!document.getElementById('consent')?.checked)return err('Please tick the box to agree before continuing.');
       S.guardian=chk(await sb.from('guardians').insert({id:S.session.uid,consent_at:new Date().toISOString()}).select().single());render();break;}
-    case 'add-child':{const name=cleanName(val('ch-name')),t=val('ch-team');
-      if(!name)return err('Enter first name and last initial, like Mateo R.');if(!t)return err('Choose a team.');
+    case 'ch-pick':{const hid=document.getElementById('ch-roster'),on=hid.value!==ds.id;hid.value=on?ds.id:'';
+      document.querySelectorAll('[data-act="ch-pick"]').forEach(b=>b.setAttribute('aria-pressed',String(on&&b.dataset.id===ds.id)));
+      const n=document.getElementById('ch-name');if(n)n.value=on?ds.name:'';break;}
+    case 'add-child':{const rid=val('ch-roster'),picked=rid&&document.querySelector(`[data-act="ch-pick"][data-id="${rid}"]`);
+      const name=picked?picked.dataset.name:cleanName(val('ch-name')),t=val('ch-team');
+      if(!t)return err('Choose a team.');if(!name)return err('Tap your child\u2019s name, or enter first name and last initial, like Mateo R.');
       if(busy)return;busy=true;
-      try{chk(await sb.from('players').insert({guardian_id:S.session.uid,team_id:t,requested_team_id:t,display_name:name}));clearJoin();
+      try{const row={guardian_id:S.session.uid,team_id:t,requested_team_id:t,display_name:name};if(picked)row.roster_id=rid;
+        const {error}=await sb.from('players').insert(row);
+        if(error){if(/duplicate|unique/i.test(error.message||''))return err(name+' has already been picked by another family. Ask your coach to check.');throw error}clearJoin();
         await loadFamily();const n=S.children.at(-1);if(n)ui.child=n.id;ui.view='today';render();toast(name+' added. Waiting for coach approval.')}finally{busy=false}break;}
     case 'child':ui.child=ds.v;await loadBoard();render();break;
     case 'child-remove':{const c=S.children.find(c=>c.id===ds.id);if(!c||!confirm(`Remove ${c.name}? This deletes their training history and can\u2019t be undone.`))return;
@@ -2519,8 +2548,13 @@ async function act(a,ds){
       const r=chk(await sb.from('drills').insert({name,how:val('nd-how'),default_target:val('nd-target')||'Coach sets target',video_url:val('nd-video')||null}).select().single());
       S.drills.push(mapDrill(r));ui.addingDrill=false;render();toast('Drill saved to the bank');break;}
     case 'approve':{const p=S.pending.find(x=>x.id===ds.id);if(!p)return;const t=val('ap-'+p.id)||p.req;
-      chk(await sb.from('players').update({status:'active',team_id:t,approved_by:S.session.uid,approved_at:new Date().toISOString()}).eq('id',p.id));
-      S.pending=S.pending.filter(x=>x.id!==p.id);S.players.push({...p,team:t,status:'active'});render();toast(p.name+' approved for '+team(t).name);break;}
+      const upd={status:'active',team_id:t,approved_by:S.session.uid,approved_at:new Date().toISOString()};let note='';
+      if(S.attReady){const m=rosterMatch(p,t);let r=m;
+        if(r&&!r.active){chk(await sb.from('roster').update({active:true}).eq('id',r.id));r.active=true}
+        if(!r){const saved=chk(await sb.from('roster').insert({team_id:t,name:p.name}).select().single());r={id:saved.id,team:t,name:p.name,number:'',active:true};S.roster.push(r);note=' and added to the roster'}
+        upd.roster_id=r.id;p.roster=r.id}
+      chk(await sb.from('players').update(upd).eq('id',p.id));
+      S.pending=S.pending.filter(x=>x.id!==p.id);S.players.push({...p,team:t,status:'active'});render();toast(p.name+' approved for '+team(t).name+note);break;}
     case 'decline':{const p=S.pending.find(x=>x.id===ds.id);if(!p||!confirm(`Decline ${p.name}? The request will be deleted.`))return;
       chk(await sb.from('players').delete().eq('id',p.id));S.pending=S.pending.filter(x=>x.id!==p.id);render();toast('Request declined');break;}
     case 'player-remove':{const p=player(ds.id);if(!p||!confirm(`Remove ${p.name} and their history?`))return;
