@@ -162,6 +162,24 @@ details.card summary{cursor:pointer}
 .pex.exdone h3{opacity:.75}
 .donechk{display:flex;gap:8px;align-items:center;margin:6px 0;font-weight:600}
 .leftover{border-color:#F2C14E;background:#FFFBEF}
+.attsum{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
+.attpill{font-size:.78rem;font-weight:700;border-radius:999px;padding:3px 10px;background:var(--soft);color:var(--muted)}
+.attpill.present{background:#E3F5E8;color:#1E7B34}.attpill.late{background:#FFF4D6;color:#8A5A00}.attpill.absent{background:#FDE7EA;color:#B0182E}.attpill.excused{background:#ECEFF4;color:#4A5568}
+.attlist{margin-top:6px}
+.attrow{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line)}
+.attname{font-weight:700;display:flex;align-items:center;gap:8px;min-width:120px}
+.jn{display:inline-grid;place-items:center;min-width:26px;height:26px;border-radius:50%;background:var(--brand);color:#fff;font-size:.75rem;font-weight:700;margin-right:6px;padding:0 4px}
+.attbtns{display:flex;gap:5px;flex-wrap:wrap}
+.attb{border:1.5px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:7px 11px;font:inherit;font-size:.85rem;font-weight:700;cursor:pointer;min-height:38px}
+.attb[disabled]{cursor:default;opacity:.55}
+.attb.present[aria-pressed="true"]{background:#1E7B34;border-color:#1E7B34;color:#fff}
+.attb.late[aria-pressed="true"]{background:#E0A526;border-color:#E0A526;color:#172036}
+.attb.absent[aria-pressed="true"]{background:#B0182E;border-color:#B0182E;color:#fff}
+.attb.excused[aria-pressed="true"]{background:#4A5568;border-color:#4A5568;color:#fff}
+.attb[aria-pressed="true"][disabled]{opacity:1}
+.attcard summary{cursor:pointer;list-style:none;padding:2px 0}.attcard summary::-webkit-details-marker{display:none}
+.attcard summary::after{content:"Show";float:right;color:var(--go);font-weight:700;font-size:.85rem}.attcard[open] summary::after{content:"Hide"}
+.small.late{color:var(--danger);font-weight:700}
 .viewonly{background:var(--soft);border-radius:10px;padding:8px 12px}
 .pitem{display:grid;grid-template-columns:auto 1fr 64px auto;gap:8px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
 .pitem:first-of-type{border-top:0}
@@ -1422,7 +1440,7 @@ async function loadForUser(user){
   loadingUid=null;render();
 }
 async function loadCoachData(){
-  const [plans,hw,players,logs,days,invites,tcs,prs,bds,lus]=await Promise.all([
+  const [plans,hw,players,logs,days,invites,tcs,prs,bds,lus,ros,att]=await Promise.all([
     all(()=>sb.from('plans').select('*')),
     all(()=>sb.from('homework').select('*').order('position')),
     all(()=>sb.from('players').select('id,team_id,requested_team_id,display_name,status,created_at').order('created_at')),
@@ -1432,8 +1450,13 @@ async function loadCoachData(){
     all(()=>sb.from('team_coaches').select('team_id,coach_id')).catch(()=>null),
     all(()=>sb.from('practices').select('*').gte('day',addDays(today(),-365)).order('day',{ascending:false})).catch(()=>null),
     all(()=>sb.from('tactical_boards').select('*').order('updated_at',{ascending:false})).catch(()=>null),
-    all(()=>sb.from('lineups').select('*').gte('day',addDays(today(),-365)).order('day',{ascending:false})).catch(()=>null)
+    all(()=>sb.from('lineups').select('*').gte('day',addDays(today(),-365)).order('day',{ascending:false})).catch(()=>null),
+    all(()=>sb.from('roster').select('*').order('name')).catch(()=>null),
+    all(()=>sb.from('attendance').select('roster_id,day,team_id,status').gte('day',addDays(today(),-365))).catch(()=>null)
   ]);
+  // Attendance needs step 5 of the database setup; until then Squad shows a reminder.
+  S.attReady=!!(ros&&att);S.roster=(ros||[]).map(r=>({id:r.id,team:r.team_id,name:r.name,number:r.number||'',active:r.active!==false}));
+  S.att={};(att||[]).forEach(a=>{S.att[a.roster_id+'|'+a.day]={status:a.status,team:a.team_id}});
   // Game day needs step 4 of the database setup; until then the tab shows a reminder.
   S.gamedayReady=!!(bds&&lus);S.boards=(bds||[]).map(mapBoard);S.lineups=(lus||[]).map(mapLineup);
   // If step 3 of the database setup hasn't been run yet, keep working as before.
@@ -1528,6 +1551,52 @@ function starterView(){
     <p>The club database is empty. Load the 50 starter sessions (FA, US Soccer, CONMEBOL and Lobos staff plans) and the drill bank. You only need to do this once.</p>
     <p class="err" id="err"></p><button class="btn" data-act="load-starter">Load starter sessions and drills</button></div>`;
 }
+/* ----- Roster and attendance ----- */
+const ATT=[['present','Here'],['late','Late'],['absent','Absent'],['excused','Excused']];
+const rosterOf=t=>S.roster.filter(r=>r.team===t&&r.active).sort((a,b)=>a.name.localeCompare(b.name));
+// Kids are kept as first name + last initial: "Albert Massey" becomes "Albert M."
+function shortName(v){const w=String(v||'').replace(/\(.*?\)/g,' ').trim().split(/\s+/).filter(Boolean);if(!w.length)return '';
+  const cap=x=>x.charAt(0).toUpperCase()+x.slice(1);if(w.length===1)return cap(w[0]);return cap(w[0])+' '+w[w.length-1].charAt(0).toUpperCase()+'.'}
+const attDays=t=>[...new Set(Object.entries(S.att).filter(([k,v])=>v.team===t).map(([k])=>k.split('|')[1]))].sort().reverse();
+function attRate(r,days){let n=0,c=0;days.forEach(d=>{const a=S.att[r.id+'|'+d];if(!a||a.status==='excused')return;n++;if(a.status!=='absent')c++});return {n,c}}
+function attSheet(t,day,where){const ed=canEdit(t),rs=rosterOf(t);
+  if(!rs.length)return `<p class="muted small">No roster yet for ${esc(team(t).name)}. ${ed?'Add players in the Squad tab.':''}</p>`;
+  const cnt={};ATT.forEach(([k])=>cnt[k]=0);let un=0;rs.forEach(r=>{const a=S.att[r.id+'|'+day];if(a)cnt[a.status]++;else un++});
+  return `<div class="attsum">${ATT.map(([k,l])=>`<span class="attpill ${k}">${cnt[k]} ${l.toLowerCase()}</span>`).join('')}${un?`<span class="attpill">${un} not marked</span>`:''}</div>
+  ${ed&&un?`<button class="btn small ghost" data-act="att-allhere" data-t="${t}" data-day="${day}">Mark everyone else here</button>`:''}
+  <div class="attlist">${rs.map(r=>{const a=S.att[r.id+'|'+day],st=a&&a.status;
+    return `<div class="attrow"><span class="attname">${r.number?`<span class="jn">${esc(r.number)}</span>`:''}${esc(r.name)}</span>
+    <span class="attbtns" role="group" aria-label="${esc(r.name)}">${ATT.map(([k,l])=>`<button class="attb ${k}" ${ed?`data-act="att-set" data-id="${r.id}" data-t="${t}" data-day="${day}" data-v="${k}"`:'disabled'} aria-pressed="${st===k}">${l}</button>`).join('')}</span></div>`}).join('')}</div>
+  ${ed?'':'<p class="small muted">View only. Only this team\u2019s coaches can take attendance.</p>'}`}
+function rosterCard(t){const ed=canEdit(t),rs=rosterOf(t),days=attDays(t).slice(0,20);
+  if(!S.attReady)return `<div class="card"><h3>Roster and attendance</h3><p>Attendance needs one more database step. In Supabase, open the SQL Editor, start a new query, paste in the step 5 file (lobos-schema-5-attendance.sql) and click Run once. Then refresh this page.</p></div>`;
+  const day=ui.attDay||today(),pr=S.practices.find(p=>p.team===t&&p.day===day);
+  return `<div class="card"><div class="row between"><h3 style="margin:0">Attendance</h3><input type="date" id="att-day" value="${esc(day)}" aria-label="Attendance date" style="width:auto"></div>
+    <p class="small muted" style="margin:4px 0 8px">${esc(fmtDay(day))}${pr?`. Practice: ${esc(pr.title||'planned')}`:''}</p>
+    ${attSheet(t,day,'squad')}</div>
+  <div class="card"><div class="row between"><h3 style="margin:0">Roster (${rs.length})</h3>${days.length?`<span class="small muted">Last ${days.length} session${days.length===1?'':'s'}</span>`:''}</div>
+    ${rs.map(r=>{const {n,c}=attRate(r,days);return `<div class="squad"><span>${r.number?`<span class="jn">${esc(r.number)}</span>`:''}<strong>${esc(r.name)}</strong><br><span class="small muted">${n?`Came to ${c} of ${n}`:'No attendance yet'}</span></span>
+      <span class="small ${n&&c/n<.6?'late':'muted'}">${n?Math.round(c/n*100)+'%':''}</span>
+      ${ed?`<button class="link" data-act="roster-remove" data-id="${r.id}">Remove</button>`:'<span></span>'}</div>`}).join('')||'<p class="muted small">No players on this roster yet.</p>'}
+    ${ed?`<h3 style="margin-top:14px">Add a player</h3><p class="small muted">First name and last initial only, like the rest of the site. A full name is shortened for you.</p>
+    <div class="row"><input id="ros-name" placeholder="Albert M." style="flex:1 1 160px"><input id="ros-num" placeholder="No." inputmode="numeric" style="width:80px"><button class="btn small" data-act="roster-add" data-t="${t}">Add</button></div><p class="err" id="err-ros"></p>`:''}</div>`}
+async function attAct(a,ds){const keep=()=>{const y=window.scrollY;ui.attOpen=!!document.querySelector('.attcard[open]');render();window.scrollTo(0,y)};
+  if(a==='att-set'){const k=ds.id+'|'+ds.day,cur=S.att[k];if(!canEdit(ds.t))return;
+    if(cur&&cur.status===ds.v){chk(await sb.from('attendance').delete().match({roster_id:ds.id,day:ds.day}));delete S.att[k]}
+    else{chk(await sb.from('attendance').upsert({roster_id:ds.id,day:ds.day,team_id:ds.t,status:ds.v,marked_by:S.session.uid,updated_at:new Date().toISOString()},{onConflict:'roster_id,day'}));S.att[k]={status:ds.v,team:ds.t}}
+    return keep()}
+  if(a==='att-allhere'){const rs=rosterOf(ds.t).filter(r=>!S.att[r.id+'|'+ds.day]);if(!rs.length)return;
+    chk(await sb.from('attendance').upsert(rs.map(r=>({roster_id:r.id,day:ds.day,team_id:ds.t,status:'present',marked_by:S.session.uid,updated_at:new Date().toISOString()})),{onConflict:'roster_id,day'}));
+    rs.forEach(r=>S.att[r.id+'|'+ds.day]={status:'present',team:ds.t});toast(rs.length+' marked here');return keep()}
+  if(a==='roster-add'){const name=shortName(val('ros-name')),num=val('ros-num').replace(/[^0-9]/g,'').slice(0,3);
+    if(!name)return err('Add the player\u2019s first name and last initial.','err-ros');
+    const dup=S.roster.find(r=>r.team===ds.t&&r.name.toLowerCase()===name.toLowerCase());
+    if(dup&&dup.active)return err(name+' is already on this roster.','err-ros');
+    if(dup){const saved=chk(await sb.from('roster').update({active:true,number:num||dup.number||null}).eq('id',dup.id).select().single());dup.active=true;dup.number=saved.number||'';toast(name+' is back on the roster');return keep()}
+    const saved=chk(await sb.from('roster').insert({team_id:ds.t,name,number:num||null}).select().single());
+    S.roster.push({id:saved.id,team:ds.t,name,number:num,active:true});toast(name+' added');return keep()}
+  if(a==='roster-remove'){const r=S.roster.find(x=>x.id===ds.id);if(!r||!confirm(`Take ${r.name} off the roster? Their past attendance is kept.`))return;
+    chk(await sb.from('roster').update({active:false}).eq('id',r.id));r.active=false;return keep()}}
 function squadView(){
   const chips=teamChips();const T=today();const t=team(ui.team);const ap=S.session.approver;
   const ps=S.players.filter(p=>p.team===ui.team);
@@ -1539,7 +1608,7 @@ function squadView(){
       <span class="row"><button class="btn small go" data-act="approve" data-id="${p.id}">Approve</button><button class="link" data-act="decline" data-id="${p.id}">Decline</button></span>`
       :`<span class="small muted">Jason approves new players</span>`}</div>`).join('')}</div>`:'';
   return `<h2>Squad</h2>${pend}${chips}
-  <div class="split"><section><div class="card"><div class="row between"><strong>${doneToday} of ${ps.length} finished today</strong><span class="small muted">Team code ${esc(t.code)}</span></div>
+  <div class="split"><section>${rosterCard(ui.team)}<div class="card"><div class="row between"><strong>${doneToday} of ${ps.length} finished today</strong><span class="small muted">Team code ${esc(t.code)}</span></div>
   <div class="bar"><b style="width:${ps.length?Math.round(doneToday/ps.length*100):0}%"></b></div></div>
   <div class="card">${ps.length?ps.map(p=>`<div class="squad"><span><strong>${esc(p.name)}</strong><br><span class="small muted">${streak(p.id)} day streak, ${points(p.id,7)} pts this week</span></span>
     <span class="dot ${dayset(p.id).has(T)?'on':''}" title="${dayset(p.id).has(T)?'Done today':'Not yet today'}"></span>
@@ -2145,6 +2214,7 @@ async function gamedayAct(a,ds){
 }
 // Live updates inside the lineup editor without losing what's been typed.
 document.addEventListener('change',e=>{const el=e.target;
+  if(el.id==='att-day'){ui.attDay=el.value||today();const y=window.scrollY;render();window.scrollTo(0,y);return}
   if(el.id==='pr-team'&&ui.draft){syncDraft();const y=window.scrollY;render();window.scrollTo(0,y);return}
   if(ui.tb&&el.id==='tb-shape'){const T=ui.tb;tbSnap();T.formation=el.value;T.items=gdItems(T.format,T.formation,T.opp);tbRefresh()}
   else if(ui.tb&&el.id==='tb-opp'){const T=ui.tb;tbSnap();T.opp=el.checked;T.items=T.opp?[...T.items.filter(x=>x[0]!=='D'),...gdShape(T.format,T.formation).map(p=>['D',100-p.x,150-p.y,p.pos])]:T.items.filter(x=>x[0]!=='D');tbRefresh()}
@@ -2241,6 +2311,7 @@ function practiceDetail(p){
     <label for="done-notes">How did it go? (optional)</label><textarea id="done-notes" placeholder="What worked, what to repeat next time"></textarea>
     <div class="row"><button class="btn small go" data-act="practice-done" data-id="${p.id}">Save as done</button><button class="link" data-act="done-cancel">Cancel</button></div></div>`:''}
   <div class="noprint">${editBadge(p.team)}</div>
+  ${S.attReady&&rosterOf(p.team).length?`<details class="card noprint attcard" ${ui.attOpen?'open':''}><summary><strong>Attendance</strong> <span class="small muted">${(()=>{const rs=rosterOf(p.team),m=rs.filter(r=>S.att[r.id+'|'+p.day]),h=m.filter(r=>S.att[r.id+'|'+p.day].status!=='absent'&&S.att[r.id+'|'+p.day].status!=='excused');return m.length?`${h.length} of ${rs.length} here`:'Not taken yet'})()}</span></summary>${attSheet(p.team,p.day,'practice')}</details>`:''}
   ${ex||'<p class="muted">No exercises in this practice yet.</p>'}`;
 }
 
@@ -2350,6 +2421,7 @@ async function practiceAct(a,ds){
       const items=cur.items.map((it,j)=>({...it,done:itDone(cur,it)}));items[i].done=!items[i].done;
       busy=true;try{const saved=chk(await sb.from('practices').update({items,updated_by:S.session.uid,updated_at:new Date().toISOString()}).eq('id',cur.id).select().single());
       const p=mapPractice(saved);S.practices=S.practices.map(x=>x.id===p.id?p:x);const y=window.scrollY;render();window.scrollTo(0,y)}finally{busy=false}break;}
+    case 'att-set':case 'att-allhere':case 'roster-add':case 'roster-remove':await attAct(a,ds);break;
     case 'p-all':ui.pAll=true;ui.pMore=false;render();break;
     case 'p-more':ui.pMore=true;render();break;
     case 'lo-add':{syncDraft();const lo=leftovers(ui.draft.team,ui.draft.id);if(!lo)break;const it=lo.items[+ds.i];if(it){ui.draft.items.push({plan_id:it.plan_id,title:it.title,minutes:it.minutes});render();toast('Added: '+it.title)}break;}
