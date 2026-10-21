@@ -163,6 +163,7 @@ details.card summary{cursor:pointer}
 .donechk{display:flex;gap:8px;align-items:center;margin:6px 0;font-weight:600}
 .leftover{border-color:#F2C14E;background:#FFFBEF}
 .chpick{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
+.gtag{display:inline-block;font-size:.7rem;font-weight:700;color:#6B4E00;background:#FFF1C7;border-radius:999px;padding:1px 8px;vertical-align:2px}
 .attsum{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
 .attpill{font-size:.78rem;font-weight:700;border-radius:999px;padding:3px 10px;background:var(--soft);color:var(--muted)}
 .attpill.present{background:#E3F5E8;color:#1E7B34}.attpill.late{background:#FFF4D6;color:#8A5A00}.attpill.absent{background:#FDE7EA;color:#B0182E}.attpill.excused{background:#ECEFF4;color:#4A5568}
@@ -1371,6 +1372,7 @@ const sb=(window.supabase&&window.supabase.createClient)?window.supabase.createC
 const OAUTH=['google'];
 const STARTER=seed();
 const TEAM_ORDER=STARTER.teams.map(t=>t.id);
+const teamAge=t=>{const m=String(t.name||t.id).match(/U\s*(\d+)/i);return m?+m[1]:99};
 S={teams:[],coaches:[],plans:[],drills:[],homework:{},players:[],pending:[],invites:[],logs:[],days:{},board:[],children:[],guardian:null,session:null,teamCoaches:[],practices:[],boards:[],lineups:[]};
 let BOOT={state:'loading',msg:''};
 const JOIN_KEY='lobos-join';
@@ -1424,7 +1426,7 @@ async function loadForUser(user){
   try{
     const isCoach=chk(await sb.rpc('claim_coach'));
     const teams=await all(()=>sb.from('teams').select('id,name,code'));
-    S.teams=teams.sort((a,b)=>TEAM_ORDER.indexOf(a.id)-TEAM_ORDER.indexOf(b.id));
+    S.teams=teams.sort((a,b)=>teamAge(a)-teamAge(b)||a.name.localeCompare(b.name));
     S.drills=(await all(()=>sb.from('drills').select('*').order('name'))).map(mapDrill);
     if(isCoach){
       S.coaches=await all(()=>sb.from('coaches').select('id,name,is_approver'));
@@ -1456,7 +1458,7 @@ async function loadCoachData(){
     all(()=>sb.from('attendance').select('roster_id,day,team_id,status').gte('day',addDays(today(),-365))).catch(()=>null)
   ]);
   // Attendance needs step 5 of the database setup; until then Squad shows a reminder.
-  S.attReady=!!(ros&&att);S.roster=(ros||[]).map(r=>({id:r.id,team:r.team_id,name:r.name,number:r.number||'',active:r.active!==false}));
+  S.attReady=!!(ros&&att);S.roster=(ros||[]).map(r=>({id:r.id,team:r.team_id,name:r.name,number:r.number||'',active:r.active!==false,guest:!!r.guest}));
   S.att={};(att||[]).forEach(a=>{S.att[a.roster_id+'|'+a.day]={status:a.status,team:a.team_id}});
   // Game day needs step 4 of the database setup; until then the tab shows a reminder.
   S.gamedayReady=!!(bds&&lus);S.boards=(bds||[]).map(mapBoard);S.lineups=(lus||[]).map(mapLineup);
@@ -1565,7 +1567,7 @@ const ATT=[['present','Here'],['late','Late'],['absent','Absent'],['excused','Ex
 const rosterOf=t=>S.roster.filter(r=>r.team===t&&r.active).sort((a,b)=>a.name.localeCompare(b.name));
 // Kids are kept as first name + last initial: "Albert Massey" becomes "Albert M."
 function shortName(v){const w=String(v||'').replace(/\(.*?\)/g,' ').trim().split(/\s+/).filter(Boolean);if(!w.length)return '';
-  const cap=x=>x.charAt(0).toUpperCase()+x.slice(1);if(w.length===1)return cap(w[0]);return cap(w[0])+' '+w[w.length-1].charAt(0).toUpperCase()+'.'}
+  const cap=x=>x===x.toUpperCase()?x:x.split('-').map(y=>y.charAt(0).toUpperCase()+y.slice(1)).join('-');if(w.length===1)return cap(w[0]);return w.slice(0,-1).map(cap).join(' ')+' '+w[w.length-1].charAt(0).toUpperCase()+'.'}
 const attDays=t=>[...new Set(Object.entries(S.att).filter(([k,v])=>v.team===t).map(([k])=>k.split('|')[1]))].sort().reverse();
 function attRate(r,days){let n=0,c=0;days.forEach(d=>{const a=S.att[r.id+'|'+d];if(!a||a.status==='excused')return;n++;if(a.status!=='absent')c++});return {n,c}}
 function attSheet(t,day,where){const ed=canEdit(t),rs=rosterOf(t);
@@ -1574,7 +1576,7 @@ function attSheet(t,day,where){const ed=canEdit(t),rs=rosterOf(t);
   return `<div class="attsum">${ATT.map(([k,l])=>`<span class="attpill ${k}">${cnt[k]} ${l.toLowerCase()}</span>`).join('')}${un?`<span class="attpill">${un} not marked</span>`:''}</div>
   ${ed&&un?`<button class="btn small ghost" data-act="att-allhere" data-t="${t}" data-day="${day}">Mark everyone else here</button>`:''}
   <div class="attlist">${rs.map(r=>{const a=S.att[r.id+'|'+day],st=a&&a.status;
-    return `<div class="attrow"><span class="attname">${r.number?`<span class="jn">${esc(r.number)}</span>`:''}${esc(r.name)}</span>
+    return `<div class="attrow"><span class="attname">${r.number?`<span class="jn">${esc(r.number)}</span>`:''}${esc(r.name)}${r.guest?' <span class="gtag">Guest</span>':''}</span>
     <span class="attbtns" role="group" aria-label="${esc(r.name)}">${ATT.map(([k,l])=>`<button class="attb ${k}" ${ed?`data-act="att-set" data-id="${r.id}" data-t="${t}" data-day="${day}" data-v="${k}"`:'disabled'} aria-pressed="${st===k}">${l}</button>`).join('')}</span></div>`}).join('')}</div>
   ${ed?'':'<p class="small muted">View only. Only this team\u2019s coaches can take attendance.</p>'}`}
 function rosterCard(t){const ed=canEdit(t),rs=rosterOf(t),days=attDays(t).slice(0,20);
@@ -1584,7 +1586,7 @@ function rosterCard(t){const ed=canEdit(t),rs=rosterOf(t),days=attDays(t).slice(
     <p class="small muted" style="margin:4px 0 8px">${esc(fmtDay(day))}${pr?`. Practice: ${esc(pr.title||'planned')}`:''}</p>
     ${attSheet(t,day,'squad')}</div>
   <div class="card"><div class="row between"><h3 style="margin:0">Roster (${rs.length})</h3>${days.length?`<span class="small muted">Last ${days.length} session${days.length===1?'':'s'}</span>`:''}</div>
-    ${rs.map(r=>{const {n,c}=attRate(r,days);return `<div class="squad"><span>${r.number?`<span class="jn">${esc(r.number)}</span>`:''}<strong>${esc(r.name)}</strong>${S.players.some(p=>p.roster===r.id)?' <span class="inpr">Parent linked</span>':''}<br><span class="small muted">${n?`Came to ${c} of ${n}`:'No attendance yet'}</span></span>
+    ${rs.map(r=>{const {n,c}=attRate(r,days);return `<div class="squad"><span>${r.number?`<span class="jn">${esc(r.number)}</span>`:''}<strong>${esc(r.name)}</strong>${r.guest?' <span class="gtag">Guest</span>':''}${S.players.some(p=>p.roster===r.id)?' <span class="inpr">Parent linked</span>':''}<br><span class="small muted">${n?`Came to ${c} of ${n}`:'No attendance yet'}</span></span>
       <span class="small ${n&&c/n<.6?'late':'muted'}">${n?Math.round(c/n*100)+'%':''}</span>
       ${ed?`<button class="link" data-act="roster-remove" data-id="${r.id}">Remove</button>`:'<span></span>'}</div>`}).join('')||'<p class="muted small">No players on this roster yet.</p>'}
     ${ed?`<h3 style="margin-top:14px">Add a player</h3><p class="small muted">First name and last initial only, like the rest of the site. A full name is shortened for you.</p>
@@ -2114,7 +2116,7 @@ document.addEventListener('pointercancel',()=>{if(ui.tb&&ui.tb.drag){ui.tb.drag=
 const mapLineup=r=>({id:r.id,team:r.team_id,day:r.day,kickoff:r.kickoff||'',opponent:r.opponent||'',location:r.location||'',format:r.format,formation:r.formation,slots:Array.isArray(r.slots)?r.slots:[],subs:Array.isArray(r.subs)?r.subs:[],notes:r.notes||'',board:r.board_id||'',by:r.created_by});
 const mapBoard=r=>({id:r.id,title:r.title,format:r.format,notes:r.notes||'',data:r.data||{},by:r.created_by,updated:r.updated_at||''});
 // Lineup choices: the team roster (Squad tab) plus any approved app players not already on it.
-function luRoster(t){const rs=(S.roster||[]).filter(r=>r.team===t&&r.active).map(r=>({id:r.id,name:r.name,number:r.number}));
+function luRoster(t){const rs=(S.roster||[]).filter(r=>r.team===t&&r.active).map(r=>({id:r.id,name:r.name,number:r.number,guest:r.guest}));
   const have=new Set(rs.map(r=>r.name.toLowerCase()));
   S.players.filter(p=>p.team===t&&!have.has(String(p.name).toLowerCase())).forEach(p=>rs.push({id:p.id,name:p.name,number:''}));
   return rs.sort((a,b)=>a.name.localeCompare(b.name))}
@@ -2134,7 +2136,7 @@ function luSync(){const d=ui.lu;if(!d)return;const g=id=>document.getElementById
 function luSubsHTML(d){const used=new Set(d.slots.map(s=>s.player_id).filter(Boolean));
   return luRoster(d.team).filter(p=>!used.has(p.id)).map(p=>`<label class="check"><input type="checkbox" data-sub="${p.id}" ${d.subs.includes(p.id)?'checked':''}> ${esc((p.number?'#'+p.number+' ':'')+p.name)}</label>`).join('')||'<p class="small muted">Everyone on the roster is starting.</p>'}
 function luEditorView(){const d=ui.lu;const roster=luRoster(d.team);
-  const lab=p=>(p.number?'#'+p.number+' ':'')+p.name;
+  const lab=p=>(p.number?'#'+p.number+' ':'')+p.name+(p.guest?' (guest)':'');
   const opts=sel=>`<option value="">Choose a player</option>`+roster.map(p=>`<option value="${p.id}" ${p.id===sel?'selected':''}>${esc(lab(p))}</option>`).join('');
   const used=new Set(d.slots.map(s=>s.player_id).filter(Boolean));
   return `<button class="backbtn" data-act="lu-cancel">Back</button><h2>${d.id?'Edit game day sheet':'New game day sheet'}</h2>
