@@ -164,6 +164,7 @@ details.card summary{cursor:pointer}
 .leftover{border-color:#F2C14E;background:#FFFBEF}
 .chpick{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
 .attpts{text-align:right;font-size:.85rem;line-height:1.2}.attpts strong{font-size:1.05rem;color:var(--brand)}
+.game{margin:0 0 10px}.gvs{font-weight:700;font-size:1.05rem;margin:2px 0}
 .maplinks{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 4px}.maplinks .btn{text-decoration:none}
 .luaddr{margin:10px 0}
 .attmine{padding:6px 0;border-top:1px solid var(--line);font-size:.9rem}
@@ -1446,9 +1447,9 @@ async function loadForUser(user){
     S.teams=teams.sort((a,b)=>teamAge(a)-teamAge(b)||a.name.localeCompare(b.name));
     S.drills=(await all(()=>sb.from('drills').select('*').order('name'))).map(mapDrill);
     if(isCoach){
-      S.coaches=await all(()=>sb.from('coaches').select('id,name,is_approver'));
+      S.coaches=await all(()=>sb.from('coaches').select('*'));
       const me=S.coaches.find(c=>c.id===user.id)||{name:'Coach',is_approver:false};
-      S.session={role:'coach',uid:user.id,name:me.name,approver:!!me.is_approver,email:user.email};
+      S.session={role:'coach',uid:user.id,name:me.name,approver:!!me.is_approver,allTeams:!!me.all_teams,email:user.email};
       await loadCoachData();
     }else{
       S.session={role:'guardian',uid:user.id,email:user.email};
@@ -1501,6 +1502,9 @@ async function loadFamily(){
   setHomework(hw);setLogs(logs);setDays(days);
   // Practice attendance for the family's own kids (step 8 lets parents read just these rows).
   const rids=active.map(c=>c.roster).filter(Boolean);S.myAtt={};
+  // Game schedule for the family's teams (step 9). No lineups are sent to parents.
+  S.games=[];if(teams.length){const {data,error}=await sb.rpc('team_games',{p_from:addDays(today(),-60)});S.gamesReady=!error;
+    if(!error)S.games=(data||[]).map(g=>({id:g.id,team:g.team_id,day:g.day,kickoff:g.kickoff||'',opponent:g.opponent||'',location:g.location||'',address:g.address||''})).sort((a,b)=>gameKey(a).localeCompare(gameKey(b)))}
   if(rids.length){try{const {data}=await sb.from('attendance').select('roster_id,day,status').in('roster_id',rids);(data||[]).forEach(a=>{(S.myAtt[a.roster_id]=S.myAtt[a.roster_id]||[]).push(a)})}catch(e){}}
   await loadBoard();
 }
@@ -1673,7 +1677,9 @@ function squadView(){
 }
 function coachesCard(){
   return `<div class="card"><h3>Coaches</h3>
-    ${S.coaches.map(c=>`<div class="squad"><span><strong>${esc(c.name)}</strong><br><span class="small muted">${c.is_approver?'Approver':'Coach'}</span></span><span></span><span></span></div>`).join('')}
+    <p class="small muted" style="margin:0 0 4px">All teams: can edit practices, game day sheets, rosters and attendance for every team. Otherwise only the teams they\u2019re assigned to.</p>
+    ${S.coaches.map(c=>`<div class="squad"><span><strong>${esc(c.name)}</strong><br><span class="small muted">${c.is_approver?'Approver, all teams':c.all_teams?'All teams':'Assigned teams only'}</span></span><span></span>
+      ${c.is_approver||c.all_teams===undefined?'<span></span>':`<button class="btn small ${c.all_teams?'ghost':''}" data-act="coach-all" data-id="${c.id}" data-v="${c.all_teams?'0':'1'}">${c.all_teams?'Limit to assigned':'Give all teams'}</button>`}</div>`).join('')}
     ${S.invites.length?`<p class="small muted" style="margin:10px 0 0">Not signed in yet. Tap <strong>Email</strong> or <strong>Text</strong> to send them their sign-in steps.</p>`:''}
     ${S.invites.map(i=>`<div class="squad${ui.justInvited===i.email?' fresh':''}"><span><strong>${esc(i.name)}</strong><br><span class="small muted">Invited: ${esc(i.email)}</span></span><span class="row" style="gap:6px;flex-wrap:wrap;justify-content:flex-end"><a class="btn small" href="${inviteMailto(i)}">Email</a><button class="btn small ghost" data-act="invite-share" data-email="${esc(i.email)}">Text / copy</button></span><button class="link" data-act="invite-remove" data-email="${esc(i.email)}">Cancel</button></div>`).join('')}
     <h3 style="margin-top:14px">Invite a coach</h3><p class="small muted">Add their name and the exact email they will sign in with (a Gmail is easiest). Then tap <strong>Email</strong> next to their name to send the sign-in steps from your own mail app.</p>
@@ -1703,7 +1709,7 @@ function header(){
   return `<header class="top"><div class="wrap"><div><h1>Lobos Training Lab</h1><p class="sub">${sub}</p></div><button class="link" data-act="logout">Sign out</button></div>${sw?`<div class="wrap kidsrow">${sw}</div>`:''}</header>`;
 }
 function nav(){
-  const tabs=S.session.role==='coach'?[['plans','Plans'],['practices','Practices'],['gameday','Game day'],['homework','Reps'],['squad','Squad'+(S.pending.length?` (${S.pending.length})`:'')],['board','Leaderboard']]:[['today','Today'],['board','Leaderboard'],['badges','Badges'],['family','Family']];
+  const tabs=S.session.role==='coach'?[['plans','Plans'],['practices','Practices'],['gameday','Game day'],['homework','Reps'],['squad','Squad'+(S.pending.length?` (${S.pending.length})`:'')],['board','Leaderboard']]:[['today','Today'],['games','Games'],['board','Leaderboard'],['badges','Badges'],['family','Family']];
   return `<nav class="tabs" aria-label="Sections"><div class="wrap">${tabs.map(([v,l])=>{const sh={practices:'Practice',gameday:'Games',board:'Ranks'}[v];return `<button data-act="nav" data-v="${v}" ${ui.view===v?'aria-current="page"':''}>${sh?`<span class="tl">${l}</span><span class="ts">${sh}</span>`:l}</button>`}).join('')}</div></nav>`;
 }
 function render(){setTimeout(dgEditing,0);if(ui.peek&&!(ui.view==='practices'&&ui.pedit)){ui.peek=null;peekDraw()}setTimeout(navSync,0);
@@ -1713,7 +1719,7 @@ function render(){setTimeout(dgEditing,0);if(ui.peek&&!(ui.view==='practices'&&u
   if(!S.session){app.innerHTML=loginView();return}
   const coach=S.session.role==='coach';
   if(!coach){if(!S.guardian){app.innerHTML=consentView();return}if(!S.children.length){app.innerHTML=firstChildView();return}}
-  const views=coach?{plans:plansView,practices:practicesView,gameday:gamedayView,homework:homeworkView,squad:squadView,board:coachBoardView}:{today:todayView,board:boardView,badges:badgesView,family:familyView};
+  const views=coach?{plans:plansView,practices:practicesView,gameday:gamedayView,homework:homeworkView,squad:squadView,board:coachBoardView}:{today:todayView,games:gamesView,board:boardView,badges:badgesView,family:familyView};
   if(!views[ui.view])ui.view=Object.keys(views)[0];
   let body=null;
   if(coach&&ui.view==='plans'&&!S.plans.length&&!ui.edit)body=starterView();
@@ -2198,6 +2204,39 @@ function luEditorView(){const d=ui.lu;const roster=luRoster(d.team);
     <label for="lu-notes">Notes for the coach running it</label><textarea id="lu-notes" placeholder="Uniform, meet point, rotation plan, who takes kick-offs">${esc(d.notes)}</textarea></div>
    <p class="err" id="err"></p><div class="row"><button class="btn" data-act="lu-save">Save game day sheet</button>${d.id?`<button class="link danger" data-act="lu-delete" data-id="${d.id}">Delete</button>`:''}</div>
   </section></div>`}
+/* ----- Game schedule (coaches: every team; parents: their child's team). No lineups here. ----- */
+function gamesHTML(list,o){const T=today();const days=[];list.forEach(g=>{let d=days[days.length-1];if(!d||d.day!==g.day)days.push(d={day:g.day,gs:[]});d.gs.push(g)});
+  return days.map(d=>`<div class="pday"><h4>${esc(fmtDay(d.day))}${d.day===T?' <span class="pill done">Today</span>':''}</h4>
+    ${d.gs.map(g=>`<div class="card game"><div class="row between"><strong>${esc(g.kickoff||'Time to be confirmed')}</strong>${o.showTeam?`<span class="pill">${esc(team(g.team).name)}</span>`:''}</div>
+      <div class="gvs">${o.showTeam?'':esc(team(g.team).name)+' '}${g.opponent?'vs '+esc(g.opponent):'Game day'}</div>
+      ${g.location?`<div class="small muted">${esc(g.location)}</div>`:''}
+      ${g.address?`<div class="small">${esc(g.address)}</div>${mapLinks(g.address)}`:''}
+      <div class="row wrapbtns" style="margin-top:6px"><button class="btn small ghost" data-act="game-ics" data-id="${g.id}">Add to calendar</button>${o.coach?`<button class="link" data-act="sched-open" data-id="${g.id}">Open game day sheet</button>`:''}</div></div>`).join('')}</div>`).join('')}
+// Calendar file for one game. A time like "9:30 AM" in kickoff sets the start; otherwise it's an all-day event.
+function gameICS(g){const z=n=>String(n).padStart(2,'0'),d=g.day.replace(/-/g,'');const m=String(g.kickoff||'').match(/(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m/i);
+  const esc2=v=>String(v||'').replace(/\\/g,'\\\\').replace(/([,;])/g,'\\$1').replace(/\n/g,'\\n');
+  let when;if(m){let h=+m[1]%12+(m[3].toLowerCase()==='p'?12:0),mi=+(m[2]||0);const st=h*60+mi,en=st+90;when=`DTSTART:${d}T${z(h)}${z(mi)}00\r\nDTEND:${d}T${z(Math.floor(en/60)%24)}${z(en%60)}00`}
+  else{const [y,mo,da]=g.day.split('-').map(Number),nx=new Date(y,mo-1,da+1);when=`DTSTART;VALUE=DATE:${d}\r\nDTEND;VALUE=DATE:${nx.getFullYear()}${z(nx.getMonth()+1)}${z(nx.getDate())}`}
+  const now=new Date(),stamp=`${now.getUTCFullYear()}${z(now.getUTCMonth()+1)}${z(now.getUTCDate())}T${z(now.getUTCHours())}${z(now.getUTCMinutes())}00Z`;
+  return ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Lobos Training Lab//EN','BEGIN:VEVENT',`UID:${g.id}@lobostraininglab`,`DTSTAMP:${stamp}`,when,
+    `SUMMARY:${esc2(team(g.team).name+(g.opponent?' vs '+g.opponent:' game'))}`,`LOCATION:${esc2([g.location,g.address].filter(Boolean).join(', '))}`,`DESCRIPTION:${esc2(g.kickoff||'')}`,'END:VEVENT','END:VCALENDAR'].join('\r\n')}
+// Kickoff text like "9:30 AM" as minutes, so games sort by time of day.
+function kickMin(k){const m=String(k||'').match(/(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m/i);return m?(+m[1]%12+(m[3].toLowerCase()==='p'?12:0))*60+(+(m[2]||0)):9999}
+const gameKey=g=>g.day+String(kickMin(g.kickoff)).padStart(4,'0')+team(g.team).name;
+function gameById(id){return (S.games||[]).find(g=>g.id===id)||(S.lineups||[]).find(g=>g.id===id)}
+function schedView(){const T=today(),from=addDays(T,-14);if(ui.schAll===undefined)ui.schAll=true;
+  const chips=`<div class="chips" role="group" aria-label="Team"><button class="chip" data-act="sch-all" aria-pressed="${!!ui.schAll}">All teams</button>${S.teams.map(x=>`<button class="chip" data-act="sch-team" data-v="${x.id}" aria-pressed="${!ui.schAll&&ui.team===x.id}">${esc(x.name)}</button>`).join('')}</div>`;
+  const mine=S.lineups.filter(l=>ui.schAll||l.team===ui.team),key=gameKey;
+  const up=mine.filter(g=>g.day>=T).sort((a,b)=>key(a).localeCompare(key(b))),past=mine.filter(g=>g.day<T&&g.day>=from).sort((a,b)=>key(b).localeCompare(key(a)));
+  return `${chips}<p class="small muted">Every game from the game day sheets. Families see the same schedule for their own team, without lineups or notes.</p>
+  <h3>Coming up</h3>${up.length?gamesHTML(up,{showTeam:true,coach:true}):'<p class="muted small">No games scheduled yet. Create a game day sheet to add one.</p>'}
+  <h3>Last two weeks</h3>${past.length?gamesHTML(past,{showTeam:true,coach:true}):'<p class="muted small">No recent games.</p>'}`}
+function gamesView(){const p=player(ui.child);if(!p)return pendingView(S.children.find(c=>c.id===ui.child));
+  if(S.gamesReady===false)return `<h2>Games</h2><div class="card"><p>The game schedule is coming soon. Check back after your coach finishes setting it up.</p></div>`;
+  const T=today(),gs=(S.games||[]).filter(g=>g.team===p.team),up=gs.filter(g=>g.day>=T),past=gs.filter(g=>g.day<T).reverse().slice(0,6);
+  return `<h2>${esc(team(p.team).name)} games</h2><p class="muted small">Tap a map app for directions, or add a game to your calendar.</p>
+  <h3>Coming up</h3>${up.length?gamesHTML(up,{showTeam:false}):'<p class="muted small">No games scheduled yet. Your coach adds them as they’re set.</p>'}
+  ${past.length?`<h3>Recent</h3>${gamesHTML(past,{showTeam:false})}`:''}`}
 // Directions: one address, three map apps.
 function mapLinks(addr){const q=encodeURIComponent(addr);
   return `<div class="maplinks noprint"><a class="btn small ghost" href="https://maps.apple.com/?daddr=${q}" target="_blank" rel="noopener">Apple Maps</a><a class="btn small ghost" href="https://www.google.com/maps/dir/?api=1&destination=${q}" target="_blank" rel="noopener">Google Maps</a><a class="btn small ghost" href="https://waze.com/ul?q=${q}&navigate=yes" target="_blank" rel="noopener">Waze</a></div>`}
@@ -2238,14 +2277,18 @@ function lineupsView(){
   <h3>Past games</h3>${past.length?`<div class="plist">${past.map(card).join('')}</div>`:'<p class="muted small">No past game day sheets.</p>'}`}
 function gamedayView(){
   if(!S.gamedayReady)return `<h2>Game day</h2><div class="card"><h3>One more database step</h3><p>Game day needs a small addition to the club database. In Supabase, open the SQL Editor, start a new query, paste in the step 4 file (lobos-schema-4-gameday.sql) and click Run once. Then refresh this page.</p></div>`;
-  const sub=ui.gd||'board';
-  const head=`<div class="noprint"><h2>Game day</h2><div class="chips" role="group" aria-label="Game day section">${[['board','Tactics board'],['lineups','Game day sheets']].map(([v,l])=>`<button class="chip" data-act="gd-sub" data-v="${v}" aria-pressed="${sub===v}">${l}</button>`).join('')}</div></div>`;
+  const sub=ui.gd||'sched';
+  const head=`<div class="noprint"><h2>Game day</h2><div class="chips" role="group" aria-label="Game day section">${[['sched','Schedule'],['lineups','Game day sheets'],['board','Tactics board']].map(([v,l])=>`<button class="chip" data-act="gd-sub" data-v="${v}" aria-pressed="${sub===v}">${l}</button>`).join('')}</div></div>`;
+  if(sub==='sched')return head+schedView();
   if(sub==='board')return (ui.tb?'':head)+(ui.tb?tbView():boardsListView());
   return (ui.lu||ui.luView?'':head)+lineupsView();
 }
 async function gamedayAct(a,ds){
   switch(a){
     case 'gd-sub':ui.gd=ds.v;ui.tb=null;ui.lu=null;ui.luView=null;render();return true;
+    case 'sch-all':ui.schAll=true;render();return true;
+    case 'sch-team':ui.schAll=false;ui.team=ds.v;render();return true;
+    case 'sched-open':ui.gd='lineups';ui.luView=ds.id;render();window.scrollTo(0,0);return true;
     case 'tb-new':tbNew(ds.v);render();window.scrollTo(0,0);return true;
     case 'tb-open':{const b=S.boards.find(x=>x.id===ds.id);if(b){tbOpen(b);render();window.scrollTo(0,0)}return true;}
     case 'tb-filter':ui.tbFilter=ds.v;render();return true;
@@ -2310,7 +2353,7 @@ document.addEventListener('change',e=>{const el=e.target;
 });
 
 /* ===== Practices and team assignments ===== */
-const canEdit=t=>!!S.session&&S.session.role==='coach'&&(!S.practicesReady||S.session.approver||S.teamCoaches.some(a=>a.team_id===t&&a.coach_id===S.session.uid));
+const canEdit=t=>!!S.session&&S.session.role==='coach'&&(!S.practicesReady||S.session.approver||S.session.allTeams||S.teamCoaches.some(a=>a.team_id===t&&a.coach_id===S.session.uid));
 const coachName=id=>(S.coaches.find(c=>c.id===id)||{}).name||'';
 const fmtDay=d=>{const [y,m,dd]=String(d).split('-').map(Number);return new Date(y,m-1,dd).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})};
 const mapPractice=r=>({id:r.id,team:r.team_id,day:r.day,title:r.title||'',notes:r.notes||'',items:Array.isArray(r.items)?r.items:[],status:r.status||'planned',done:r.done_notes||'',by:r.created_by,upd:r.updated_by});
@@ -2324,7 +2367,8 @@ function leftovers(teamId,skipId){const T=today();
   const last=S.practices.filter(p=>p.team===teamId&&p.id!==skipId&&p.day<=T&&p.items.length&&(p.status==='done'||p.items.some(i=>i.done))).sort((a,b)=>b.day.localeCompare(a.day))[0];
   if(!last)return null;const items=last.items.filter(it=>!itDone(last,it)&&S.plans.some(x=>x.id===it.plan_id));return items.length?{p:last,items}:null}
 function editBadge(t){return canEdit(t)?'':`<p class="viewonly small">View only. You\u2019re not assigned to ${esc(team(t).name)}. Ask Jason to add you if you\u2019re covering this team.</p>`}
-function teamCoachLine(t){const cs=S.teamCoaches.filter(a=>a.team_id===t).map(a=>coachName(a.coach_id)).filter(Boolean);return `<p class="small muted">Team coaches: ${cs.length?esc(cs.join(', ')):'none assigned yet'}</p>`}
+function teamCoachLine(t){const cs=S.teamCoaches.filter(a=>a.team_id===t).map(a=>coachName(a.coach_id)).filter(Boolean);const allc=(S.coaches||[]).filter(c=>c.all_teams&&!c.is_approver).length;
+  return `<p class="small muted">Team coaches: ${cs.length?esc(cs.join(', ')):'none assigned yet'}${allc?`. Plus ${allc} coach${allc===1?'':'es'} with all-teams access`:''}</p>`}
 function pillFor(p){const T=today(),n=pDoneN(p),k=p.items.length;
   if(p.status==='done')return n<k?`<span class="pill part">Partly done ${n}/${k}</span>`:'<span class="pill done">Done</span>';
   if(n)return `<span class="pill part">${n} of ${k} done</span>`;
@@ -2553,6 +2597,8 @@ async function act(a,ds){
     case 'edit-plan':ui.edit=ds.id;ui.dg=null;render();window.scrollTo(0,0);break;
     case 'cancel-edit':ui.edit=null;ui.prefill=null;ui.dg=null;render();break;
     case 'team':ui.team=ds.v;if(ui.view==='practices')ui.pAll=false;if(ui.view==='gameday')ui.luAll=false;render();break;
+    case 'game-ics':{const g=gameById(ds.id);if(!g)break;const url=URL.createObjectURL(new Blob([gameICS(g)],{type:'text/calendar'}));
+      const a2=document.createElement('a');a2.href=url;a2.download=(team(g.team).name+(g.opponent?' vs '+g.opponent:'')).replace(/[^\w ]+/g,'').trim().replace(/\s+/g,'-')+'.ics';document.body.appendChild(a2);a2.click();setTimeout(()=>{URL.revokeObjectURL(url);a2.remove()},1500);break;}
     case 'board-kind':ui.boardKind=ds.v;if(S.session.role!=='coach')await loadBoard();render();break;
     case 'att-per':ui.attPer=ds.v;render();break;
     case 'board-per':ui.boardPer=ds.v;if(S.session.role!=='coach')await loadBoard();render();break;
@@ -2633,6 +2679,9 @@ async function act(a,ds){
       if(navigator.share){try{await navigator.share({title:'Lobos Training Lab coach login',text});}catch(x){}break}
       try{await navigator.clipboard.writeText(text);toast('Invite copied. Paste it into a text or WhatsApp.')}catch(x){prompt('Copy this invite:',text)}break;}
     default:if(!(await gamedayAct(a,ds)))await practiceAct(a,ds);break;
+    case 'coach-all':{const c=S.coaches.find(x=>x.id===ds.id);if(!c)break;const on=ds.v==='1';
+      if(!on&&!confirm(`Limit ${c.name} to only the teams they\u2019re assigned to?`))break;
+      chk(await sb.from('coaches').update({all_teams:on}).eq('id',c.id));c.all_teams=on;render();toast(on?c.name+' can now edit all teams':c.name+' is limited to assigned teams');break;}
     case 'invite-remove':chk(await sb.from('coach_invites').delete().eq('email',ds.email));S.invites=S.invites.filter(i=>i.email!==ds.email);render();break;
   }}catch(e){console.error(e);toast(friendly(e))}
 }
