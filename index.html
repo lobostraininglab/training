@@ -182,10 +182,14 @@ details.card summary{cursor:pointer}
 .stin input::-webkit-outer-spin-button,.stin input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .stb{border:0;background:var(--soft);width:30px;height:36px;font-size:1.1rem;font-weight:700;color:var(--brand);cursor:pointer}
 .sttable{font-size:.9rem}
-.sthead,.stline{display:grid;grid-template-columns:minmax(0,1fr) repeat(5,32px) 44px;gap:4px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.sthead,.stline{display:grid;grid-template-columns:minmax(0,1fr) repeat(7,28px) 40px;gap:4px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
 .sthead{border-top:0;font-size:.75rem;font-weight:700;color:var(--muted);padding-top:0}
 .sthead span:not(:first-child),.stline span:not(:first-child){text-align:center}
-.stpts{font-weight:700;color:var(--brand)}.gvs{font-weight:700;font-size:1.05rem;margin:2px 0}
+.stpts{font-weight:700;color:var(--brand)}
+.sthead span{font-size:.9rem;white-space:nowrap;overflow:visible}.sthead span:nth-child(5){font-size:.62rem;letter-spacing:-.05em}
+.stplay{margin-left:auto;border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 11px;font:inherit;font-size:.8rem;font-weight:700;color:var(--muted);cursor:pointer}
+.stplay[aria-pressed="true"]{background:#E3F5E8;border-color:#1E7B34;color:#1E7B34}
+@media (max-width:420px){.sthead,.stline{grid-template-columns:minmax(0,1fr) repeat(7,24px) 34px;gap:2px;font-size:.82rem}}.gvs{font-weight:700;font-size:1.05rem;margin:2px 0}
 .maplinks{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 4px}.maplinks .btn{text-decoration:none}
 .luaddr{margin:10px 0}
 .attmine{padding:6px 0;border-top:1px solid var(--line);font-size:.9rem}
@@ -1206,7 +1210,7 @@ const PERIODS=[['week','This week'],['month','This month'],['season','All season
 function periodFrom(v){return v==='month'?today().slice(0,8)+'01':v==='season'?addDays(today(),-364):addDays(today(),-6)}
 function periodChips(){const cur=ui.boardPer||'week';return `<div class="chips" role="group" aria-label="Period">${PERIODS.map(([v,l])=>`<button class="chip" data-act="board-per" data-v="${v}" aria-pressed="${cur===v}">${l}</button>`).join('')}</div>`}
 function kindChips(){const cur=ui.boardKind||'reps';return `<div class="chips" role="group" aria-label="Points type">${[['reps','Reps'],['att','Practice'],['games','Games'],['comb','Combined']].map(([v,l])=>`<button class="chip" data-act="board-kind" data-v="${v}" aria-pressed="${cur===v}">${l}</button>`).join('')}</div>`}
-const KIND_NOTE={reps:'Reps: 10 points per drill, 20 bonus for a full day.',att:'Practice: 10 points for showing up, 5 for showing up late.',games:'Games: goal 10, assist 10, AA (assist before the assist) 5, save 5, defensive recovery 5.',comb:'Combined: reps, practice and game points together.'};
+const KIND_NOTE={reps:'Reps: 10 points per drill, 20 bonus for a full day.',att:'Practice: 10 points for showing up, 5 for showing up late.',games:'Games: \u2705 showed up 10, \u26BD goal 10, \u{1F45F} assist 10, \u{1F45F}\u{1F45F} AA 5, \u{1F9E4} save 5, \u{1F9B5} defensive recovery 5, \u{1F6A7} block 5.',comb:'Combined: reps, practice and game points together.'};
 function points(pid,sinceDays){const from=sinceDays?addDays(today(),-(sinceDays-1)):'0000';
   return S.logs.filter(l=>l.p===pid&&l.date>=from).length*10+(S.days[pid]||[]).filter(d=>d>=from).length*20}
 const BADGES=[
@@ -2311,16 +2315,22 @@ function luEditorView(){const d=ui.lu;const roster=luRoster(d.team);
    <p class="err" id="err"></p><div class="row"><button class="btn" data-act="lu-save">Save game day sheet</button>${d.id?`<button class="link danger" data-act="lu-delete" data-id="${d.id}">Delete</button>`:''}</div>
   </section></div>`}
 /* ----- Game stats: goals, assists, AA (assist before the assist), saves, defensive recoveries ----- */
-const STATS=[['goals','Goals','G',10],['assists','Assists','A',10],['aa','AA','AA',5],['saves','Saves','Sv',5],['recoveries','Defensive recoveries','DR',5]];
-const STAT_ONE={goals:['goal','goals'],assists:['assist','assists'],aa:['AA','AA'],saves:['save','saves'],recoveries:['defensive recovery','defensive recoveries']};
+// [key, name, short code, points, emoji]. Showing up to the game is separate: 10 points.
+const STATS=[['goals','Goals','G',10,'\u26BD'],['assists','Assists','A',10,'\u{1F45F}'],['aa','AA (assist before the assist)','AA',5,'\u{1F45F}\u{1F45F}'],['saves','Saves','Sv',5,'\u{1F9E4}'],['recoveries','Defensive recoveries','DR',5,'\u{1F9B5}'],['blocks','Blocks','B',5,'\u{1F6A7}']];
+const PLAYED_PTS=10,PLAYED_ICON='\u2705';
+const statZero=()=>{const t={played:0};STATS.forEach(([k])=>t[k]=0);return t};
+const STAT_ONE={goals:['goal','goals'],assists:['assist','assists'],aa:['AA','AA'],saves:['save','saves'],recoveries:['defensive recovery','defensive recoveries'],blocks:['block','blocks']};
 function setStats(gs,ps){S.sgames=gs.map(g=>({id:g.id,team:g.team_id,day:g.day,opponent:g.opponent||'',lineup:g.lineup_id||null}));
-  const ok=new Set(S.sgames.map(g=>g.id));S.pstats=ps.filter(r=>ok.has(r.stat_game_id)).map(r=>({g:r.stat_game_id,r:r.roster_id,team:r.team_id,goals:r.goals|0,assists:r.assists|0,aa:r.aa|0,saves:r.saves|0,recoveries:r.recoveries|0}))}
-const statPtsOf=x=>STATS.reduce((n,[k,,,v])=>n+(x[k]|0)*v,0);
-function statTot(rid,from){const t={goals:0,assists:0,aa:0,saves:0,recoveries:0,pts:0,games:0};const gd={};(S.sgames||[]).forEach(g=>gd[g.id]=g.day);
-  (S.pstats||[]).forEach(x=>{if(x.r!==rid)return;if(from&&!(gd[x.g]>=from))return;STATS.forEach(([k])=>t[k]+=x[k]);t.games++});t.pts=statPtsOf(t);return t}
-function statLine(t){const parts=STATS.filter(([k])=>t[k]).map(([k])=>t[k]+' '+STAT_ONE[k][t[k]===1?0:1]);return parts.join(', ')}
+  const ok=new Set(S.sgames.map(g=>g.id));S.pstats=ps.filter(r=>ok.has(r.stat_game_id)).map(r=>{const x={g:r.stat_game_id,r:r.roster_id,team:r.team_id,played:r.played?1:0};STATS.forEach(([k])=>x[k]=r[k]|0);return x})}
+const statPtsOf=x=>STATS.reduce((n,[k,,,v])=>n+(x[k]|0)*v,0)+(x.played|0)*PLAYED_PTS;
+function statTot(rid,from){const t={...statZero(),pts:0,games:0};const gd={};(S.sgames||[]).forEach(g=>gd[g.id]=g.day);
+  (S.pstats||[]).forEach(x=>{if(x.r!==rid)return;if(from&&!(gd[x.g]>=from))return;STATS.forEach(([k])=>t[k]+=x[k]);t.played+=x.played|0;t.games++});t.pts=statPtsOf(t);return t}
+function statLine(t){const parts=STATS.filter(([k])=>t[k]).map(([k,,,,ic])=>ic+' '+t[k]+' '+STAT_ONE[k][t[k]===1?0:1]);
+  if(t.played)parts.unshift(PLAYED_ICON+' '+(t.played>1||t.games>1?t.played+' game'+(t.played===1?'':'s'):'played'));return parts.join(', ')}
 const sgFor=lid=>(S.sgames||[]).find(g=>g.lineup===lid);
-function stNew(o){const vals={};if(o.id)(S.pstats||[]).filter(x=>x.g===o.id).forEach(x=>{vals[x.r]={goals:x.goals,assists:x.assists,aa:x.aa,saves:x.saves,recoveries:x.recoveries}});
+function stNew(o){const vals={};if(o.id)(S.pstats||[]).filter(x=>x.g===o.id).forEach(x=>{const v={played:x.played|0};STATS.forEach(([k])=>v[k]=x[k]);vals[x.r]=v});
+  // New stats from a game day sheet: everyone in the lineup starts as "showed up".
+  else if(o.lineup){const l=S.lineups.find(x=>x.id===o.lineup);if(l)[...l.slots.map(x=>x.player_id),...l.subs.map(x=>x.player_id)].filter(Boolean).forEach(id=>{vals[id]={played:1}})}
   ui.st={id:o.id||null,team:o.team,day:o.day||today(),opponent:o.opponent||'',lineup:o.lineup||null,back:o.back||'stats',vals,dirty:false}}
 function stSync(){const d=ui.st;if(!d)return;const g=id=>document.getElementById(id);
   if(g('st-team'))d.team=g('st-team').value;if(g('st-day'))d.day=g('st-day').value;if(g('st-opp'))d.opponent=g('st-opp').value.trim();
@@ -2328,15 +2338,17 @@ function stSync(){const d=ui.st;if(!d)return;const g=id=>document.getElementById
 function statsEditor(){const d=ui.st,lu=d.lineup&&S.lineups.find(l=>l.id===d.lineup);
   const played=new Set(lu?[...lu.slots.map(x=>x.player_id),...lu.subs.map(x=>x.player_id)].filter(Boolean):[]);
   const rs=rosterOf(d.team).sort((a,b)=>(played.has(b.id)-played.has(a.id))||a.name.localeCompare(b.name));
-  const cell=(r,k)=>`<label class="stcell"><span>${STATS.find(x=>x[0]===k)[2]}</span><span class="stin"><button class="stb" data-act="st-step" data-id="${r.id}" data-k="${k}" data-v="-1" aria-label="Minus">−</button><input type="number" inputmode="numeric" min="0" max="99" value="${(d.vals[r.id]||{})[k]||0}" data-stat="${r.id}|${k}" aria-label="${esc(r.name)} ${STATS.find(x=>x[0]===k)[1]}"><button class="stb" data-act="st-step" data-id="${r.id}" data-k="${k}" data-v="1" aria-label="Plus">+</button></span></label>`;
+  const cell=(r,k)=>{const st=STATS.find(x=>x[0]===k);return `<label class="stcell" title="${esc(st[1])}"><span>${st[4]} ${st[2]}</span><span class="stin"><button class="stb" data-act="st-step" data-id="${r.id}" data-k="${k}" data-v="-1" aria-label="Minus">−</button><input type="number" inputmode="numeric" min="0" max="99" value="${(d.vals[r.id]||{})[k]||0}" data-stat="${r.id}|${k}" aria-label="${esc(r.name)} ${STATS.find(x=>x[0]===k)[1]}"><button class="stb" data-act="st-step" data-id="${r.id}" data-k="${k}" data-v="1" aria-label="Plus">+</button></span></label>`};
+  const pl=r=>{const on=!!(d.vals[r.id]||{}).played;return `<button class="stplay" data-act="st-played" data-id="${r.id}" aria-pressed="${on}">${PLAYED_ICON} ${on?'Showed up':'Showed up?'}</button>`};
   return `<button class="backbtn" data-act="st-cancel">Back</button><h2>${d.id?'Edit game stats':'Game stats'}</h2>
   <div class="card">${lu?`<p style="margin:0"><strong>${esc(team(d.team).name)}${d.opponent?' vs '+esc(d.opponent):''}</strong><br><span class="small muted">${esc(fmtDay(d.day))}. From the game day sheet.</span></p>`
     :`<label for="st-team">Team</label><select id="st-team">${S.teams.filter(t=>canEdit(t.id)).map(t=>`<option value="${t.id}" ${t.id===d.team?'selected':''}>${esc(t.name)}</option>`).join('')}</select>
     <div class="row wrapbtns"><div style="flex:1;min-width:140px"><label for="st-day">Game date</label><input id="st-day" type="date" value="${esc(d.day)}"></div>
     <div style="flex:2;min-width:180px"><label for="st-opp">Opponent</label><input id="st-opp" value="${esc(d.opponent)}" placeholder="Houston Dynamo"></div></div>
     <p class="small muted" style="margin:6px 0 0">For a past game that isn’t on the site. Games with a game day sheet can have stats added from the sheet.</p>`}</div>
-  <div class="card"><p class="small muted" style="margin:0 0 6px">G goal 10 pts, A assist 10, AA assist before the assist 5, Sv save 5, DR defensive recovery 5. Leave zeros for players who didn’t record anything.</p>
-    ${rs.length?rs.map(r=>`<div class="strow"><span class="stname">${r.number?`<span class="jn">${esc(r.number)}</span>`:''}${esc(r.name)}${played.has(r.id)?' <span class="inpr">Played</span>':''}${r.guest?' <span class="gtag">Guest</span>':''}</span><span class="stcells">${STATS.map(([k])=>cell(r,k)).join('')}</span></div>`).join('')
+  <div class="card"><p class="small muted" style="margin:0 0 6px">${PLAYED_ICON} showed up 10 pts. ${STATS.map(([,n,,v,ic])=>`${ic} ${n} ${v}`).join(', ')}. Leave zeros for players who didn\u2019t record anything.</p>
+    ${rs.length?'<button class="btn small ghost" data-act="st-allplayed">Everyone showed up</button>':''}
+    ${rs.length?rs.map(r=>`<div class="strow"><span class="stname">${r.number?`<span class="jn">${esc(r.number)}</span>`:''}${esc(r.name)}${played.has(r.id)?' <span class="inpr">In lineup</span>':''}${r.guest?' <span class="gtag">Guest</span>':''}${pl(r)}</span><span class="stcells">${STATS.map(([k])=>cell(r,k)).join('')}</span></div>`).join('')
       :'<p class="muted">No roster for this team yet. Add players in the Squad tab first.</p>'}</div>
   <p class="err" id="err"></p><div class="row"><button class="btn" data-act="st-save">Save stats</button>${d.id?'<button class="link danger" data-act="st-delete">Delete these stats</button>':''}</div>`}
 function statsView(){
@@ -2346,11 +2358,11 @@ function statsView(){
   const kids=(ui.stAll?S.roster.filter(r=>r.active):rosterOf(ui.team)).map(r=>({r,t:statTot(r.id,from)})).filter(x=>x.t.games||!ui.stAll).sort((a,b)=>b.t.pts-a.t.pts||b.t.goals-a.t.goals||a.r.name.localeCompare(b.r.name));
   const shown=ui.stAll?kids.slice(0,30):kids;
   const games=(S.sgames||[]).filter(g=>ui.stAll||g.team===ui.team).sort((a,b)=>b.day.localeCompare(a.day));
-  const tbl=`<div class="sttable"><div class="sthead"><span>Player</span>${STATS.map(([,,c])=>`<span>${c}</span>`).join('')}<span>Pts</span></div>
-    ${shown.map(x=>`<div class="stline"><span><strong>${esc(x.r.name)}</strong>${ui.stAll?`<br><span class="small muted">${esc(team(x.r.team).name)}</span>`:''}${statLine(x.t)?`<br><span class="small muted">${esc(statLine(x.t))}</span>`:''}</span>${STATS.map(([k])=>`<span>${x.t[k]||'·'}</span>`).join('')}<span class="stpts">${x.t.pts}</span></div>`).join('')}</div>`;
+  const tbl=`<div class="sttable"><div class="sthead"><span>Player</span><span title="Showed up">${PLAYED_ICON}</span>${STATS.map(([,n,,,ic])=>`<span title="${esc(n)}">${ic}</span>`).join('')}<span>Pts</span></div>
+    ${shown.map(x=>`<div class="stline"><span><strong>${esc(x.r.name)}</strong>${ui.stAll?`<br><span class="small muted">${esc(team(x.r.team).name)}</span>`:''}${statLine(x.t)?`<br><span class="small muted">${esc(statLine(x.t))}</span>`:''}</span><span>${x.t.played||'\u00b7'}</span>${STATS.map(([k])=>`<span>${x.t[k]||'\u00b7'}</span>`).join('')}<span class="stpts">${x.t.pts}</span></div>`).join('')}</div>`;
   const canAdd=S.teams.some(x=>canEdit(x.id));
   return `<div class="row between"><h3 style="margin:0">Game stats</h3>${canAdd?'<button class="btn small" data-act="st-past">Add stats for a past game</button>':''}</div>
-  ${chips}<p class="small muted">This season. Goal 10 pts, assist 10, AA (assist before the assist) 5, save 5, defensive recovery 5.</p>
+  ${chips}<p class="small muted">This season. ${PLAYED_ICON} showed up 10 pts, ${STATS.map(([,n,,v,ic])=>`${ic} ${n.replace(' (assist before the assist)','')} ${v}`).join(', ')}.</p>
   <div class="card">${shown.length?tbl:'<p class="muted">No game stats yet. Open a game day sheet and tap Enter game stats, or add a past game.</p>'}</div>
   <h3>Games with stats</h3>${games.length?`<div class="plist">${games.map(g=>{const rows=S.pstats.filter(x=>x.g===g.id),gl=rows.reduce((n,x)=>n+x.goals,0);
     const sc=rows.filter(x=>x.goals).map(x=>{const r=S.roster.find(y=>y.id===x.r);return r?r.name+(x.goals>1?' ('+x.goals+')':''):''}).filter(Boolean);
@@ -2390,7 +2402,7 @@ function gamesView(){const p=player(ui.child);if(!p)return pendingView(S.childre
   if(S.gamesReady===false)return `<h2>Games</h2><div class="card"><p>The game schedule is coming soon. Check back after your coach finishes setting it up.</p></div>`;
   const T=today(),gs=(S.games||[]).filter(g=>g.team===p.team),up=gs.filter(g=>g.day>=T),past=gs.filter(g=>g.day<T).reverse().slice(0,6);
   const mine=(S.myStats||[]).filter(x=>x.roster_id===p.roster).sort((a,b)=>b.game.day.localeCompare(a.game.day));
-  const tot={goals:0,assists:0,aa:0,saves:0,recoveries:0};mine.forEach(x=>STATS.forEach(([k])=>tot[k]+=x[k]|0));
+  const tot=statZero();mine.forEach(x=>{STATS.forEach(([k])=>tot[k]+=x[k]|0);tot.played+=x.played?1:0});tot.games=mine.length;
   const statCard=p.roster&&mine.length?`<div class="card"><div class="row between"><strong>${esc(p.name)}\u2019s game stats</strong><span class="small muted">${statPtsOf(tot)} pts</span></div>
     <p style="margin:4px 0 8px">${esc(statLine(tot))}</p>${mine.slice(0,5).map(x=>`<div class="row between attmine"><span>${esc(fmtDay(x.game.day))}${x.game.opponent?' vs '+esc(x.game.opponent):''}</span><span class="small">${esc(statLine(x))}</span></div>`).join('')}</div>`:'';
   return `<h2>${esc(team(p.team).name)} games</h2>${statCard}<p class="muted small">Tap a map app for directions, or add a game to your calendar.</p>
@@ -2457,18 +2469,23 @@ async function gamedayAct(a,ds){
     case 'st-sheet':{const l=S.lineups.find(x=>x.id===ds.id);if(!l)return true;const g=sgFor(l.id);stNew(g?{...g,back:'sheet'}:{team:l.team,day:l.day,opponent:l.opponent,lineup:l.id,back:'sheet'});render();window.scrollTo(0,0);return true;}
     case 'st-step':{stSync();const v=((ui.st.vals[ds.id]=ui.st.vals[ds.id]||{})[ds.k]|0)+(+ds.v);ui.st.vals[ds.id][ds.k]=Math.max(0,Math.min(99,v));ui.st.dirty=true;
       const el=document.querySelector(`[data-stat="${ds.id}|${ds.k}"]`);if(el)el.value=ui.st.vals[ds.id][ds.k];return true;}
+    case 'st-played':{stSync();const v=ui.st.vals[ds.id]=ui.st.vals[ds.id]||{};v.played=v.played?0:1;ui.st.dirty=true;
+      const b=document.querySelector(`[data-act="st-played"][data-id="${ds.id}"]`);if(b){b.setAttribute('aria-pressed',String(!!v.played));b.textContent='\u2705 '+(v.played?'Showed up':'Showed up?')}return true;}
+    case 'st-allplayed':{stSync();rosterOf(ui.st.team).forEach(r=>{(ui.st.vals[r.id]=ui.st.vals[r.id]||{}).played=1});ui.st.dirty=true;const y=window.scrollY;render();window.scrollTo(0,y);return true;}
     case 'st-cancel':if(ui.st&&ui.st.dirty&&!confirm('Leave without saving these stats?'))return true;{const b=ui.st&&ui.st.back,lid=ui.st&&ui.st.lineup;ui.st=null;if(b==='sheet'&&lid){ui.gd='lineups';ui.luView=lid}render();}return true;
     case 'st-delete':{if(!confirm('Delete the stats for this game?'))return true;const id=ui.st.id;chk(await sb.from('stat_games').delete().eq('id',id));
       S.sgames=S.sgames.filter(g=>g.id!==id);S.pstats=S.pstats.filter(x=>x.g!==id);ui.st=null;render();toast('Game stats deleted');return true;}
     case 'st-save':{stSync();const d=ui.st;if(!canEdit(d.team))return err('Pick a team you\u2019re assigned to.'),true;if(!/^\d{4}-\d{2}-\d{2}$/.test(d.day||''))return err('Pick the game date.'),true;
       if(busy)return true;busy=true;
-      try{const ids=new Set(rosterOf(d.team).map(r=>r.id));const rows=Object.entries(d.vals).filter(([rid,v])=>ids.has(rid)&&STATS.some(([k])=>v[k]>0)).map(([rid,v])=>({roster_id:rid,team_id:d.team,goals:v.goals|0,assists:v.assists|0,aa:v.aa|0,saves:v.saves|0,recoveries:v.recoveries|0,updated_at:new Date().toISOString()}));
+      try{const ids=new Set(rosterOf(d.team).map(r=>r.id));const rows=Object.entries(d.vals).filter(([rid,v])=>ids.has(rid)&&(v.played||STATS.some(([k])=>v[k]>0))).map(([rid,v])=>{const o={roster_id:rid,team_id:d.team,played:!!v.played,updated_at:new Date().toISOString()};STATS.forEach(([k])=>o[k]=v[k]|0);return o});
         let gid=d.id;const head={team_id:d.team,day:d.day,opponent:d.opponent||null,lineup_id:d.lineup||null};
         if(gid)chk(await sb.from('stat_games').update(head).eq('id',gid));else gid=chk(await sb.from('stat_games').insert({...head,created_by:S.session.uid}).select().single()).id;
         chk(await sb.from('player_stats').delete().eq('stat_game_id',gid));
-        if(rows.length)chk(await sb.from('player_stats').insert(rows.map(r=>({...r,stat_game_id:gid}))));
+        if(rows.length){const {error}=await sb.from('player_stats').insert(rows.map(r=>({...r,stat_game_id:gid})));
+          if(error&&/blocks|played/i.test(error.message||'')){const lite=rows.map(({blocks,played,...r})=>({...r,stat_game_id:gid})).filter(r=>STATS.some(([k])=>r[k]>0));if(lite.length)chk(await sb.from('player_stats').insert(lite));toast('Saved without blocks and showed-up. Run step 12 in Supabase.')}
+          else if(error)throw error}
         S.sgames=[{id:gid,team:d.team,day:d.day,opponent:d.opponent||'',lineup:d.lineup||null},...S.sgames.filter(g=>g.id!==gid)];
-        S.pstats=[...S.pstats.filter(x=>x.g!==gid),...rows.map(r=>({g:gid,r:r.roster_id,team:r.team_id,goals:r.goals,assists:r.assists,aa:r.aa,saves:r.saves,recoveries:r.recoveries}))];
+        S.pstats=[...S.pstats.filter(x=>x.g!==gid),...rows.map(r=>{const x={g:gid,r:r.roster_id,team:r.team_id,played:r.played?1:0};STATS.forEach(([k])=>x[k]=r[k]);return x})];
         const b=d.back,lid=d.lineup;ui.st=null;if(b==='sheet'&&lid){ui.gd='lineups';ui.luView=lid}else ui.gd='stats';render();window.scrollTo(0,0);toast('Game stats saved')}finally{busy=false}return true;}
     case 'sch-team':ui.schAll=false;ui.team=ds.v;render();return true;
     case 'sched-open':ui.gd='lineups';ui.luView=ds.id;render();window.scrollTo(0,0);return true;
