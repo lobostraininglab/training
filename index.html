@@ -164,7 +164,28 @@ details.card summary{cursor:pointer}
 .leftover{border-color:#F2C14E;background:#FFFBEF}
 .chpick{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
 .attpts{text-align:right;font-size:.85rem;line-height:1.2}.attpts strong{font-size:1.05rem;color:var(--brand)}
-.game{margin:0 0 10px}.gvs{font-weight:700;font-size:1.05rem;margin:2px 0}
+.game{margin:0 0 10px}
+.sqcard .meta,.sqcard .small{display:block;margin-top:2px}
+.xwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.xsheet{border-collapse:collapse;font-size:.82rem;min-width:100%}
+.xsheet th,.xsheet td{padding:6px 7px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap}
+.xsheet th{background:var(--brand);color:#fff;font-weight:700;position:sticky;top:0}
+.xsheet .xn{text-align:left;position:sticky;left:0;background:var(--surface);font-weight:700}.xsheet th.xn{background:var(--brand)}
+.xsheet .xH{background:#E3F5E8;color:#1E7B34;font-weight:700}.xsheet .xL{background:#FFF4D6;color:#8A5A00;font-weight:700}.xsheet .xA{background:#FDE7EA;color:#B0182E;font-weight:700}.xsheet .xE{background:#ECEFF4;color:#4A5568}
+@media print{.xwrap{overflow:visible;border:0}.xsheet{font-size:8pt}.xsheet th{position:static}.xsheet .xn{position:static}}
+.strow{padding:10px 0;border-top:1px solid var(--line)}
+.stname{display:flex;align-items:center;gap:6px;font-weight:700;margin-bottom:6px;flex-wrap:wrap}
+.stcells{display:flex;flex-wrap:wrap;gap:8px}
+.stcell{display:flex;flex-direction:column;align-items:center;gap:2px;margin:0;font-size:.72rem;font-weight:700;color:var(--muted)}
+.stin{display:flex;align-items:center;border:1.5px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.stin input{width:36px;border:0;text-align:center;padding:6px 0;font:inherit;font-weight:700;font-size:1rem;-moz-appearance:textfield;margin:0;border-radius:0}
+.stin input::-webkit-outer-spin-button,.stin input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.stb{border:0;background:var(--soft);width:30px;height:36px;font-size:1.1rem;font-weight:700;color:var(--brand);cursor:pointer}
+.sttable{font-size:.9rem}
+.sthead,.stline{display:grid;grid-template-columns:minmax(0,1fr) repeat(5,32px) 44px;gap:4px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.sthead{border-top:0;font-size:.75rem;font-weight:700;color:var(--muted);padding-top:0}
+.sthead span:not(:first-child),.stline span:not(:first-child){text-align:center}
+.stpts{font-weight:700;color:var(--brand)}.gvs{font-weight:700;font-size:1.05rem;margin:2px 0}
 .maplinks{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 4px}.maplinks .btn{text-decoration:none}
 .luaddr{margin:10px 0}
 .attmine{padding:6px 0;border-top:1px solid var(--line);font-size:.9rem}
@@ -1184,8 +1205,8 @@ function repPts(pid,from){return S.logs.filter(l=>l.p===pid&&l.date>=from).lengt
 const PERIODS=[['week','This week'],['month','This month'],['season','All season']];
 function periodFrom(v){return v==='month'?today().slice(0,8)+'01':v==='season'?addDays(today(),-364):addDays(today(),-6)}
 function periodChips(){const cur=ui.boardPer||'week';return `<div class="chips" role="group" aria-label="Period">${PERIODS.map(([v,l])=>`<button class="chip" data-act="board-per" data-v="${v}" aria-pressed="${cur===v}">${l}</button>`).join('')}</div>`}
-function kindChips(){const cur=ui.boardKind||'reps';return `<div class="chips" role="group" aria-label="Points type">${[['reps','Reps'],['att','Practice'],['comb','Combined']].map(([v,l])=>`<button class="chip" data-act="board-kind" data-v="${v}" aria-pressed="${cur===v}">${l}</button>`).join('')}</div>`}
-const KIND_NOTE={reps:'Reps: 10 points per drill, 20 bonus for a full day.',att:'Practice: 10 points for showing up, 5 for showing up late.',comb:'Combined: reps points plus practice points.'};
+function kindChips(){const cur=ui.boardKind||'reps';return `<div class="chips" role="group" aria-label="Points type">${[['reps','Reps'],['att','Practice'],['games','Games'],['comb','Combined']].map(([v,l])=>`<button class="chip" data-act="board-kind" data-v="${v}" aria-pressed="${cur===v}">${l}</button>`).join('')}</div>`}
+const KIND_NOTE={reps:'Reps: 10 points per drill, 20 bonus for a full day.',att:'Practice: 10 points for showing up, 5 for showing up late.',games:'Games: goal 10, assist 10, AA (assist before the assist) 5, save 5, defensive recovery 5.',comb:'Combined: reps, practice and game points together.'};
 function points(pid,sinceDays){const from=sinceDays?addDays(today(),-(sinceDays-1)):'0000';
   return S.logs.filter(l=>l.p===pid&&l.date>=from).length*10+(S.days[pid]||[]).filter(d=>d>=from).length*20}
 const BADGES=[
@@ -1358,9 +1379,10 @@ function coachBoardView(){
   const sorted=rs=>rs.sort((x,y)=>y.score-x.score||y.n-x.n||x.name.localeCompare(y.name));
   const list=sorted(rows.filter(r=>r.team===ui.team)),all=sorted(rows.filter(r=>r.score>0)).slice(0,25),t=team(ui.team);
   const total=list.reduce((n,r)=>n+r.score,0);
-  const sub=(r,showTeam)=>[showTeam?esc(team(r.team).name):'',kind==='reps'&&r.pid?`${streak(r.pid)} day streak`:'',kind==='att'&&S.attReady&&r.rid?`${r.n} practice${r.n===1?'':'s'}`:'',kind==='comb'?`${r.rep} reps + ${r.att} practice`:''].filter(Boolean).join(', ');
+  const sub=(r,showTeam)=>[showTeam?esc(team(r.team).name):'',kind==='reps'&&r.pid?`${streak(r.pid)} day streak`:'',kind==='att'&&S.attReady&&r.rid?`${r.n} practice${r.n===1?'':'s'}`:'',kind==='games'&&r.gt?statLine(r.gt):'',kind==='comb'?`${r.rep||0} reps + ${r.att||0} practice + ${r.gm||0} games`:''].filter(Boolean).join(', ');
   const line=(r,i,showTeam)=>`<div class="lb"><span class="pos">${r.score?medal(i)||i+1:i+1}</span><span>${esc(r.name)}${r.guest?' <span class="gtag">Guest</span>':''}<br><span class="small muted">${sub(r,showTeam)||'&nbsp;'}</span></span><span class="pts">${r.score}</span></div>`;
   const empty=kind==='reps'?'No app players on this squad yet.':'No roster for this squad yet. Add players in the Squad tab.';
+  if(kind==='games'&&!S.statsReady)return `<h2>Leaderboard</h2>${kindChips()}<div class="card"><p>Game points need the step 11 database file. Run it in Supabase, then refresh.</p></div>`;
   const squadPanel=`<section class="${club?'mhide':''}"><h3 class="mhide">By squad</h3>${teamChips()}
   <div class="card"><div class="row between"><strong>${esc(t.name)}</strong><span class="small muted">${total} points as a squad</span></div></div>
   <div class="card">${list.length?list.map((r,i)=>line(r,i,false)).join(''):`<p class="muted">${empty}</p>`}</div></section>`;
@@ -1374,9 +1396,9 @@ function coachBoardView(){
 // Everyone who can score: roster kids (practice) joined to their app account (reps), plus app players not on a roster.
 function coachBoardRows(kind,from){const out=[],used=new Set();
   if(kind!=='reps')(S.roster||[]).filter(r=>r.active).forEach(r=>{const p=S.players.find(x=>x.roster===r.id)||S.players.find(x=>x.team===r.team&&!x.roster&&x.name.toLowerCase()===r.name.toLowerCase());
-    if(p)used.add(p.id);const a=attPoints(r.id,from),rp=p?repPts(p.id,from):0;
-    out.push({name:r.name,team:r.team,guest:r.guest,rid:r.id,pid:p&&p.id,rep:rp,att:a.pts,n:a.n,score:kind==='att'?a.pts:rp+a.pts})});
-  if(kind!=='att')S.players.filter(p=>!used.has(p.id)).forEach(p=>{const rp=repPts(p.id,from);out.push({name:p.name,team:p.team,pid:p.id,rep:rp,att:0,n:0,score:rp})});
+    if(p)used.add(p.id);const a=attPoints(r.id,from),rp=p&&kind==='comb'?repPts(p.id,from):0,gt=statTot(r.id,from);
+    out.push({name:r.name,team:r.team,guest:r.guest,rid:r.id,pid:p&&p.id,rep:rp,att:a.pts,n:a.n,gm:gt.pts,gt,score:kind==='att'?a.pts:kind==='games'?gt.pts:rp+a.pts+gt.pts})});
+  if(kind==='reps'||kind==='comb')S.players.filter(p=>!used.has(p.id)).forEach(p=>{const rp=repPts(p.id,from);out.push({name:p.name,team:p.team,pid:p.id,rep:rp,att:0,n:0,score:rp})});
   return out}
 function boardScopeChips(){
   const cur=ui.boardScope==='club'?'club':'team';
@@ -1461,7 +1483,7 @@ async function loadForUser(user){
   loadingUid=null;render();
 }
 async function loadCoachData(){
-  const [plans,hw,players,logs,days,invites,tcs,prs,bds,lus,ros,att]=await Promise.all([
+  const [plans,hw,players,logs,days,invites,tcs,prs,bds,lus,ros,att,sgs,pss]=await Promise.all([
     all(()=>sb.from('plans').select('*')),
     all(()=>sb.from('homework').select('*').order('position')),
     all(()=>sb.from('players').select('*').order('created_at')),
@@ -1473,8 +1495,12 @@ async function loadCoachData(){
     all(()=>sb.from('tactical_boards').select('*').order('updated_at',{ascending:false})).catch(()=>null),
     all(()=>sb.from('lineups').select('*').gte('day',addDays(today(),-365)).order('day',{ascending:false})).catch(()=>null),
     all(()=>sb.from('roster').select('*').order('name')).catch(()=>null),
-    all(()=>sb.from('attendance').select('roster_id,day,team_id,status').gte('day',addDays(today(),-365))).catch(()=>null)
+    all(()=>sb.from('attendance').select('roster_id,day,team_id,status').gte('day',addDays(today(),-365))).catch(()=>null),
+    all(()=>sb.from('stat_games').select('*').gte('day',addDays(today(),-366))).catch(()=>null),
+    all(()=>sb.from('player_stats').select('*')).catch(()=>null)
   ]);
+  // Game stats need step 11 of the database setup.
+  S.statsReady=!!(sgs&&pss);setStats(sgs||[],pss||[]);
   // Attendance needs step 5 of the database setup; until then Squad shows a reminder.
   S.attReady=!!(ros&&att);S.roster=(ros||[]).map(r=>({id:r.id,team:r.team_id,name:r.name,number:r.number||'',active:r.active!==false,guest:!!r.guest}));
   S.att={};(att||[]).forEach(a=>{S.att[a.roster_id+'|'+a.day]={status:a.status,team:a.team_id}});
@@ -1505,6 +1531,8 @@ async function loadFamily(){
   // Game schedule for the family's teams (step 9). No lineups are sent to parents.
   S.games=[];if(teams.length){const {data,error}=await sb.rpc('team_games',{p_from:addDays(today(),-60)});S.gamesReady=!error;
     if(!error)S.games=(data||[]).map(g=>({id:g.id,team:g.team_id,day:g.day,kickoff:g.kickoff||'',opponent:g.opponent||'',location:g.location||'',address:g.address||''})).sort((a,b)=>gameKey(a).localeCompare(gameKey(b)))}
+  S.myStats=[];if(rids.length){try{const [{data:ps},{data:gs}]=await Promise.all([sb.from('player_stats').select('*').in('roster_id',rids),sb.from('stat_games').select('*').in('team_id',teams)]);
+    const gd={};(gs||[]).forEach(g=>gd[g.id]=g);S.myStats=(ps||[]).map(x=>({...x,game:gd[x.stat_game_id]})).filter(x=>x.game)}catch(e){}}
   if(rids.length){try{const {data}=await sb.from('attendance').select('roster_id,day,status').in('roster_id',rids);(data||[]).forEach(a=>{(S.myAtt[a.roster_id]=S.myAtt[a.roster_id]||[]).push(a)})}catch(e){}}
   await loadBoard();
 }
@@ -1589,9 +1617,9 @@ function familyView(){
 function boardView(){
   const me=player(ui.child);if(!me)return pendingView(S.children.find(c=>c.id===ui.child));
   const kind=S.board2?(ui.boardKind||'reps'):'reps',per=S.board2?(ui.boardPer||'week'):'week';
-  const sc=r=>kind==='att'?r.att_pts:kind==='comb'?r.rep_pts+r.att_pts:r.rep_pts;
+  const sc=r=>kind==='att'?r.att_pts:kind==='games'?(r.game_pts||0):kind==='comb'?r.rep_pts+r.att_pts+(r.game_pts||0):r.rep_pts;
   const rows=(S.board||[]).slice().sort((a,b)=>sc(b)-sc(a)||a.display_name.localeCompare(b.display_name));
-  const sub=r=>kind==='reps'?(r.days_7!==undefined?`${r.days_7} full ${r.days_7===1?'day':'days'} this week`:`${r.rep_pts} rep points`):kind==='att'?`${r.practices} practice${r.practices===1?'':'s'}`:`${r.rep_pts} reps + ${r.att_pts} practice`;
+  const sub=r=>kind==='reps'?(r.days_7!==undefined?`${r.days_7} full ${r.days_7===1?'day':'days'} this week`:`${r.rep_pts} rep points`):kind==='att'?`${r.practices} practice${r.practices===1?'':'s'}`:kind==='games'?`${r.game_pts||0} game points`:`${r.rep_pts} reps + ${r.att_pts} practice + ${r.game_pts||0} games`;
   return `<h2>${esc(team(me.team).name)} leaderboard</h2>${S.board2?kindChips()+periodChips():''}<p class="muted small">${KIND_NOTE[kind]}</p>
   <div class="card">${rows.length?rows.map((r,i)=>`<div class="lb ${r.player_id===me.id?'me':''}"><span class="pos">${i+1}</span><span>${esc(r.display_name)}${r.player_id===me.id?' (you)':''}<br><span class="small muted">${sub(r)}</span></span><span class="pts">${sc(r)}</span></div>`).join(''):'<p class="muted">No points yet for this period. Be the first.</p>'}</div>
   <p class="small muted">Only players whose families use the app are listed.</p>`;
@@ -1651,12 +1679,89 @@ async function attAct(a,ds){const keep=()=>{const y=window.scrollY;ui.attOpen=!!
     S.roster.push({id:saved.id,team:ds.t,name,number:num,active:true});toast(name+' added');return keep()}
   if(a==='roster-remove'){const r=S.roster.find(x=>x.id===ds.id);if(!r||!confirm(`Take ${r.name} off the roster? Their past attendance is kept.`))return;
     chk(await sb.from('roster').update({active:false}).eq('id',r.id));r.active=false;return keep()}}
+function squadAllView(){const from=addDays(today(),-29),ap=S.session.approver;
+  const kids=(S.roster||[]).filter(r=>r.active),teamsWith=new Set(kids.map(r=>r.team));
+  const stat=(n,l)=>`<div class="pstat"><strong>${n}</strong><span>${l}</span></div>`;
+  const rate=t=>{let n=0,c=0;rosterOf(t).forEach(r=>{for(const k in S.att){const i=k.indexOf('|');if(k.slice(0,i)!==r.id||k.slice(i+1)<from)continue;const st=S.att[k].status;if(st==='excused')continue;n++;if(st!=='absent')c++}});return n?Math.round(c/n*100)+'%':'No attendance yet'};
+  const coachesOf=t=>[...new Set([...S.teamCoaches.filter(a=>a.team_id===t).map(a=>coachName(a.coach_id))])].filter(Boolean);
+  return `<div class="pstats">${stat(S.teams.length,'teams')}${stat(kids.length,'players on rosters')}${stat(kids.filter(r=>r.guest).length,'guest spots')}${stat(S.players.length,'families on the app')}${stat(S.pending.length,'waiting for approval')}</div>
+  ${S.attReady?exportCard(null):''}
+  <div class="plist">${S.teams.map(t=>{const rs=rosterOf(t.id),g=rs.filter(r=>r.guest).length,app=S.players.filter(p=>p.team===t.id).length,cs=coachesOf(t.id);
+    return `<button class="pcard sqcard" data-act="sq-team" data-v="${t.id}"><span class="row between"><strong>${esc(t.name)}</strong><span class="pill">${rs.length} player${rs.length===1?'':'s'}</span></span>
+    <span class="meta">${g?g+' guest'+(g===1?'':'s')+'. ':''}${app} on the app. Join code ${esc(t.code)}</span>
+    <span class="meta">Attendance, last 30 days: ${S.attReady?rate(t.id):'not set up'}</span>
+    <span class="small muted">Coaches: ${cs.length?esc(cs.join(', ')):'none assigned'}</span></button>`}).join('')}</div>
+  ${ap?`<div style="margin-top:14px">${coachesCard()}</div>`:''}`}
+/* ----- Attendance spreadsheet (.xlsx, built in the browser) ----- */
+function exportCard(t){const f=ui.xFrom||today().slice(0,8)+'01',to=ui.xTo||today();
+  return `<div class="card noprint"><h3 style="margin-top:0">Attendance sheet</h3><p class="small muted" style="margin:0 0 6px">Pick the dates, then view it here (and print), or download it for Excel, Numbers or Google Sheets. One row per player, one column per practice in that range, with totals, attendance % and points.</p>
+  <div class="row wrapbtns"><div style="flex:1;min-width:130px"><label for="x-from">From</label><input type="date" id="x-from" value="${esc(f)}"></div><div style="flex:1;min-width:130px"><label for="x-to">To</label><input type="date" id="x-to" value="${esc(to)}"></div></div>
+  <div class="chips" role="group" aria-label="Quick dates">${[['month','This month'],['last','Last month'],['3m','Last 3 months'],['season','All season']].map(([v,l])=>`<button class="chip" data-act="x-quick" data-v="${v}">${l}</button>`).join('')}</div>
+  <div class="row wrapbtns">${t?`<button class="btn small" data-act="x-view" data-v="${t}">View ${esc(team(t).name)} sheet</button><button class="btn small ghost" data-act="x-team" data-v="${t}">Download ${esc(team(t).name)}</button>`:''}
+    <button class="btn small ${t?'ghost':''}" data-act="x-view" data-v="">View whole club</button><button class="btn small ghost" data-act="x-club">Download whole club</button></div></div>`}
+function xRange(){const f=ui.xFrom||today().slice(0,8)+'01',t=ui.xTo||today();return f<=t?[f,t]:[t,f]}
+function xFrom(){return xRange()[0]}
+function attSheetView(){const [f,t]=xRange(),ids=ui.xView.team?[ui.xView.team]:S.teams.map(x=>x.id).filter(x=>rosterOf(x).length);
+  const one=tid=>{const {head,rows}=attSheetRows(tid,f,t);const nd=head.length-9;
+    return `<section class="pex"><h3>${esc(team(tid).name)} <span class="small muted">${rows.length} players, ${nd} practice${nd===1?'':'s'}</span></h3>
+    ${nd?`<div class="xwrap"><table class="xsheet"><thead><tr>${head.map((h,i)=>`<th${i===0?' class="xn"':''}>${esc(h==='Attendance %'?'%':h==='Excused'?'Exc':h)}</th>`).join('')}</tr></thead>
+      <tbody>${rows.map(r=>`<tr>${r.map((v,i)=>`<td class="${i===0?'xn':''} ${['H','L','A','E'].includes(v)&&i>2&&i<3+nd?'x'+v:''}">${esc(v===''?'':String(v))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:'<p class="muted small">No attendance taken in these dates.</p>'}</section>`};
+  return `<div class="noprint"><button class="backbtn" data-act="x-close">Squad</button></div>
+  <p class="printhead small">Lobos Training Lab: attendance</p>
+  <h2>Attendance sheet: ${ui.xView.team?esc(team(ui.xView.team).name):'whole club'}</h2><p class="meta">${esc(fmtDay(f))} to ${esc(fmtDay(t))}. H here (10 pts), L late (5), A absent, E excused (not counted against %).</p>
+  <div class="noprint row wrapbtns"><button class="btn small" data-act="print-practice">Print or save as PDF</button><button class="btn small ghost" data-act="${ui.xView.team?'x-team':'x-club'}" data-v="${ui.xView.team||''}">Download for Excel</button></div>
+  ${ids.map(one).join('')}`}
+function attSheetRows(t,from,to){to=to||xRange()[1];const rs=rosterOf(t),days=attDays(t).filter(d=>d>=from&&d<=to).sort();const code={present:'H',late:'L',absent:'A',excused:'E'};
+  const head=['Player','No.','Guest',...days.map(d=>{const [y,m,dd]=d.split('-');return `${+m}/${+dd}`}),'Here','Late','Absent','Excused','Attendance %','Points'];
+  const rows=rs.map(r=>{const c={present:0,late:0,absent:0,excused:0};const cells=days.map(d=>{const a=S.att[r.id+'|'+d];if(!a)return '';c[a.status]++;return code[a.status]});
+    const counted=c.present+c.late+c.absent;return [r.name,r.number?+r.number||r.number:'',r.guest?'Guest':'',...cells,c.present,c.late,c.absent,c.excused,counted?Math.round((c.present+c.late)/counted*100):'',c.present*10+c.late*5]});
+  return {head,rows,days}}
+function xlsxSheetName(n,used){let b=String(n).replace(/[\[\]\*\?\/\\:]/g,' ').slice(0,31).trim()||'Sheet',x=b,i=2;while(used.has(x.toLowerCase()))x=(b.slice(0,28)+' '+i++);used.add(x.toLowerCase());return x}
+function buildAttWorkbook(teamIds,from){const sheets=[],used=new Set();
+  if(teamIds.length>1){const sum=[['Team','Players','Practices marked','Here','Late','Absent','Excused','Attendance %','Points']];
+    teamIds.forEach(t=>{const {rows,days}=attSheetRows(t,from,xRange()[1]);const k=rows.reduce((a,r)=>{const n=r.length;a.h+=r[n-6];a.l+=r[n-5];a.a+=r[n-4];a.e+=r[n-3];a.p+=r[n-1];return a},{h:0,l:0,a:0,e:0,p:0});
+      const cnt=k.h+k.l+k.a;sum.push([team(t).name,rows.length,days.length,k.h,k.l,k.a,k.e,cnt?Math.round((k.h+k.l)/cnt*100):'',k.p])});
+    sheets.push({name:xlsxSheetName('Summary',used),rows:sum,widths:[18,9,16,8,8,8,9,13,9]})}
+  teamIds.forEach(t=>{const {head,rows}=attSheetRows(t,from,xRange()[1]);sheets.push({name:xlsxSheetName(team(t).name,used),rows:[head,...rows],widths:[18,6,7,...head.slice(3,-6).map(()=>6),7,7,8,9,13,8],freeze:true})});
+  sheets.push({name:xlsxSheetName('Key',used),rows:[['Code','Meaning','Points'],['H','Here',10],['L','Late',5],['A','Absent',0],['E','Excused (not counted against attendance %)',0],[],['From',xRange()[0]],['To',xRange()[1]],['Made',today()]],widths:[12,44,8]});
+  return xlsxBlob(sheets)}
+// Minimal .xlsx writer: SpreadsheetML parts in an uncompressed zip. No outside library needed.
+function xlsxBlob(sheets){const enc=new TextEncoder(),X=v=>String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const col=n=>{let s='';n++;while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26)}return s};
+  const NS='http://schemas.openxmlformats.org/spreadsheetml/2006/main',RNS='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  const files=[];const add=(n,t)=>files.push({n,d:enc.encode(t)});
+  add('[Content_Types].xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`);
+  add('_rels/.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${RNS}/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
+  add('xl/workbook.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="${NS}" xmlns:r="${RNS}"><sheets>${sheets.map((sh,i)=>`<sheet name="${X(sh.name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('')}</sheets></workbook>`);
+  add('xl/_rels/workbook.xml.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((_,i)=>`<Relationship Id="rId${i+1}" Type="${RNS}/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('')}<Relationship Id="rId${sheets.length+1}" Type="${RNS}/styles" Target="styles.xml"/></Relationships>`);
+  add('xl/styles.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="${NS}"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF0B2545"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`);
+  sheets.forEach((sh,i)=>{const rows=sh.rows.map((r,ri)=>`<row r="${ri+1}">${r.map((v,ci)=>{if(v===''||v==null)return '';const ref=col(ci)+(ri+1),st=ri===0?' s="1"':(typeof v==='string'&&v.length<=2&&ci>0?' s="2"':'');
+      return typeof v==='number'?`<c r="${ref}"${st}><v>${v}</v></c>`:`<c r="${ref}" t="inlineStr"${st}><is><t xml:space="preserve">${X(v)}</t></is></c>`}).join('')}</row>`).join('');
+    const cols=sh.widths?`<cols>${sh.widths.map((w,ci)=>`<col min="${ci+1}" max="${ci+1}" width="${w}" customWidth="1"/>`).join('')}</cols>`:'';
+    const view=sh.freeze?`<sheetViews><sheetView workbookViewId="0"><pane xSplit="1" ySplit="1" topLeftCell="B2" activePane="bottomRight" state="frozen"/></sheetView></sheetViews>`:'';
+    add(`xl/worksheets/sheet${i+1}.xml`,`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="${NS}" xmlns:r="${RNS}">${view}${cols}<sheetData>${rows}</sheetData></worksheet>`)});
+  // zip (stored, no compression)
+  const crcT=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+  const crc=d=>{let c=0xFFFFFFFF;for(let i=0;i<d.length;i++)c=crcT[(c^d[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0};
+  const parts=[],cent=[];let off=0;
+  files.forEach(f=>{const name=enc.encode(f.n),c=crc(f.d),L=new DataView(new ArrayBuffer(30));
+    L.setUint32(0,0x04034b50,true);L.setUint16(4,20,true);L.setUint16(6,0x0800,true);L.setUint16(8,0,true);L.setUint16(10,0,true);L.setUint16(12,0x21,true);
+    L.setUint32(14,c,true);L.setUint32(18,f.d.length,true);L.setUint32(22,f.d.length,true);L.setUint16(26,name.length,true);L.setUint16(28,0,true);
+    parts.push(new Uint8Array(L.buffer),name,f.d);
+    const C=new DataView(new ArrayBuffer(46));C.setUint32(0,0x02014b50,true);C.setUint16(4,20,true);C.setUint16(6,20,true);C.setUint16(8,0x0800,true);C.setUint16(10,0,true);C.setUint16(12,0,true);C.setUint16(14,0x21,true);
+    C.setUint32(16,c,true);C.setUint32(20,f.d.length,true);C.setUint32(24,f.d.length,true);C.setUint16(28,name.length,true);C.setUint32(42,off,true);
+    cent.push(new Uint8Array(C.buffer),name);off+=30+name.length+f.d.length});
+  const csz=cent.reduce((n,a)=>n+a.length,0),E=new DataView(new ArrayBuffer(22));E.setUint32(0,0x06054b50,true);E.setUint16(8,files.length,true);E.setUint16(10,files.length,true);E.setUint32(12,csz,true);E.setUint32(16,off,true);
+  return new Blob([...parts,...cent,new Uint8Array(E.buffer)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})}
+function saveBlob(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(url);a.remove()},2000)}
 // Which roster kid a signup belongs to: the one the parent tapped, else the same name on that team. Never makes a second copy.
 function rosterMatch(p,t){const claimed=new Set(S.players.filter(x=>x.id!==p.id&&x.roster).map(x=>x.roster));
   const picked=p.roster&&S.roster.find(r=>r.id===p.roster&&r.team===t);if(picked)return picked;
   return S.roster.find(r=>r.team===t&&r.name.toLowerCase()===String(p.name).toLowerCase()&&!claimed.has(r.id))||null}
 function squadView(){
-  const chips=teamChips();const T=today();const t=team(ui.team);const ap=S.session.approver;
+  if(ui.xView)return attSheetView();
+  if(!ui.team)ui.team=S.teams[0].id;if(ui.sqAll===undefined)ui.sqAll=true;
+  const chips=`<div class="chips" role="group" aria-label="Team"><button class="chip" data-act="sq-all" aria-pressed="${!!ui.sqAll}">All teams</button>${S.teams.map(x=>`<button class="chip" data-act="team" data-v="${x.id}" aria-pressed="${!ui.sqAll&&ui.team===x.id}">${esc(x.name)}</button>`).join('')}</div>`;const T=today();const t=team(ui.team);const ap=S.session.approver;
   const ps=S.players.filter(p=>p.team===ui.team);
   const doneToday=ps.filter(p=>dayset(p.id).has(T)).length;
   const link=location.origin+location.pathname+'?join='+encodeURIComponent(t.code);
@@ -1665,8 +1770,9 @@ function squadView(){
       ${ap?`<select id="ap-${p.id}" aria-label="Team for ${esc(p.name)}">${S.teams.map(x=>`<option value="${x.id}" ${x.id===p.req?'selected':''}>${esc(x.name)}</option>`).join('')}</select>
       <span class="row"><button class="btn small go" data-act="approve" data-id="${p.id}">Approve</button><button class="link" data-act="decline" data-id="${p.id}">Decline</button></span>`
       :`<span class="small muted">Jason approves new players</span>`}</div>`).join('')}</div>`:'';
+  if(ui.sqAll)return `<h2>Squad</h2>${pend}${chips}${squadAllView()}`;
   return `<h2>Squad</h2>${pend}${chips}
-  <div class="split"><section>${rosterCard(ui.team)}<div class="card"><div class="row between"><strong>${doneToday} of ${ps.length} finished today</strong><span class="small muted">Team code ${esc(t.code)}</span></div>
+  <div class="split"><section>${rosterCard(ui.team)}${S.attReady?exportCard(ui.team):''}<div class="card"><div class="row between"><strong>${doneToday} of ${ps.length} finished today</strong><span class="small muted">Team code ${esc(t.code)}</span></div>
   <div class="bar"><b style="width:${ps.length?Math.round(doneToday/ps.length*100):0}%"></b></div></div>
   <div class="card">${ps.length?ps.map(p=>`<div class="squad"><span><strong>${esc(p.name)}</strong><br><span class="small muted">${streak(p.id)} day streak, ${points(p.id,7)} pts this week</span></span>
     <span class="dot ${dayset(p.id).has(T)?'on':''}" title="${dayset(p.id).has(T)?'Done today':'Not yet today'}"></span>
@@ -2204,6 +2310,55 @@ function luEditorView(){const d=ui.lu;const roster=luRoster(d.team);
     <label for="lu-notes">Notes for the coach running it</label><textarea id="lu-notes" placeholder="Uniform, meet point, rotation plan, who takes kick-offs">${esc(d.notes)}</textarea></div>
    <p class="err" id="err"></p><div class="row"><button class="btn" data-act="lu-save">Save game day sheet</button>${d.id?`<button class="link danger" data-act="lu-delete" data-id="${d.id}">Delete</button>`:''}</div>
   </section></div>`}
+/* ----- Game stats: goals, assists, AA (assist before the assist), saves, defensive recoveries ----- */
+const STATS=[['goals','Goals','G',10],['assists','Assists','A',10],['aa','AA','AA',5],['saves','Saves','Sv',5],['recoveries','Defensive recoveries','DR',5]];
+const STAT_ONE={goals:['goal','goals'],assists:['assist','assists'],aa:['AA','AA'],saves:['save','saves'],recoveries:['defensive recovery','defensive recoveries']};
+function setStats(gs,ps){S.sgames=gs.map(g=>({id:g.id,team:g.team_id,day:g.day,opponent:g.opponent||'',lineup:g.lineup_id||null}));
+  const ok=new Set(S.sgames.map(g=>g.id));S.pstats=ps.filter(r=>ok.has(r.stat_game_id)).map(r=>({g:r.stat_game_id,r:r.roster_id,team:r.team_id,goals:r.goals|0,assists:r.assists|0,aa:r.aa|0,saves:r.saves|0,recoveries:r.recoveries|0}))}
+const statPtsOf=x=>STATS.reduce((n,[k,,,v])=>n+(x[k]|0)*v,0);
+function statTot(rid,from){const t={goals:0,assists:0,aa:0,saves:0,recoveries:0,pts:0,games:0};const gd={};(S.sgames||[]).forEach(g=>gd[g.id]=g.day);
+  (S.pstats||[]).forEach(x=>{if(x.r!==rid)return;if(from&&!(gd[x.g]>=from))return;STATS.forEach(([k])=>t[k]+=x[k]);t.games++});t.pts=statPtsOf(t);return t}
+function statLine(t){const parts=STATS.filter(([k])=>t[k]).map(([k])=>t[k]+' '+STAT_ONE[k][t[k]===1?0:1]);return parts.join(', ')}
+const sgFor=lid=>(S.sgames||[]).find(g=>g.lineup===lid);
+function stNew(o){const vals={};if(o.id)(S.pstats||[]).filter(x=>x.g===o.id).forEach(x=>{vals[x.r]={goals:x.goals,assists:x.assists,aa:x.aa,saves:x.saves,recoveries:x.recoveries}});
+  ui.st={id:o.id||null,team:o.team,day:o.day||today(),opponent:o.opponent||'',lineup:o.lineup||null,back:o.back||'stats',vals,dirty:false}}
+function stSync(){const d=ui.st;if(!d)return;const g=id=>document.getElementById(id);
+  if(g('st-team'))d.team=g('st-team').value;if(g('st-day'))d.day=g('st-day').value;if(g('st-opp'))d.opponent=g('st-opp').value.trim();
+  document.querySelectorAll('[data-stat]').forEach(el=>{const [rid,k]=el.dataset.stat.split('|');const v=Math.max(0,Math.min(99,parseInt(el.value,10)||0));(d.vals[rid]=d.vals[rid]||{})[k]=v})}
+function statsEditor(){const d=ui.st,lu=d.lineup&&S.lineups.find(l=>l.id===d.lineup);
+  const played=new Set(lu?[...lu.slots.map(x=>x.player_id),...lu.subs.map(x=>x.player_id)].filter(Boolean):[]);
+  const rs=rosterOf(d.team).sort((a,b)=>(played.has(b.id)-played.has(a.id))||a.name.localeCompare(b.name));
+  const cell=(r,k)=>`<label class="stcell"><span>${STATS.find(x=>x[0]===k)[2]}</span><span class="stin"><button class="stb" data-act="st-step" data-id="${r.id}" data-k="${k}" data-v="-1" aria-label="Minus">−</button><input type="number" inputmode="numeric" min="0" max="99" value="${(d.vals[r.id]||{})[k]||0}" data-stat="${r.id}|${k}" aria-label="${esc(r.name)} ${STATS.find(x=>x[0]===k)[1]}"><button class="stb" data-act="st-step" data-id="${r.id}" data-k="${k}" data-v="1" aria-label="Plus">+</button></span></label>`;
+  return `<button class="backbtn" data-act="st-cancel">Back</button><h2>${d.id?'Edit game stats':'Game stats'}</h2>
+  <div class="card">${lu?`<p style="margin:0"><strong>${esc(team(d.team).name)}${d.opponent?' vs '+esc(d.opponent):''}</strong><br><span class="small muted">${esc(fmtDay(d.day))}. From the game day sheet.</span></p>`
+    :`<label for="st-team">Team</label><select id="st-team">${S.teams.filter(t=>canEdit(t.id)).map(t=>`<option value="${t.id}" ${t.id===d.team?'selected':''}>${esc(t.name)}</option>`).join('')}</select>
+    <div class="row wrapbtns"><div style="flex:1;min-width:140px"><label for="st-day">Game date</label><input id="st-day" type="date" value="${esc(d.day)}"></div>
+    <div style="flex:2;min-width:180px"><label for="st-opp">Opponent</label><input id="st-opp" value="${esc(d.opponent)}" placeholder="Houston Dynamo"></div></div>
+    <p class="small muted" style="margin:6px 0 0">For a past game that isn’t on the site. Games with a game day sheet can have stats added from the sheet.</p>`}</div>
+  <div class="card"><p class="small muted" style="margin:0 0 6px">G goal 10 pts, A assist 10, AA assist before the assist 5, Sv save 5, DR defensive recovery 5. Leave zeros for players who didn’t record anything.</p>
+    ${rs.length?rs.map(r=>`<div class="strow"><span class="stname">${r.number?`<span class="jn">${esc(r.number)}</span>`:''}${esc(r.name)}${played.has(r.id)?' <span class="inpr">Played</span>':''}${r.guest?' <span class="gtag">Guest</span>':''}</span><span class="stcells">${STATS.map(([k])=>cell(r,k)).join('')}</span></div>`).join('')
+      :'<p class="muted">No roster for this team yet. Add players in the Squad tab first.</p>'}</div>
+  <p class="err" id="err"></p><div class="row"><button class="btn" data-act="st-save">Save stats</button>${d.id?'<button class="link danger" data-act="st-delete">Delete these stats</button>':''}</div>`}
+function statsView(){
+  if(!S.statsReady)return '<div class="card"><p>Game stats need the step 11 database file. In Supabase, run lobos-schema-11-game-stats.sql once, then refresh.</p></div>';
+  if(ui.stAll===undefined)ui.stAll=true;const from=addDays(today(),-364);
+  const chips=`<div class="chips" role="group" aria-label="Team"><button class="chip" data-act="st-all" aria-pressed="${!!ui.stAll}">All teams</button>${S.teams.map(x=>`<button class="chip" data-act="st-teamf" data-v="${x.id}" aria-pressed="${!ui.stAll&&ui.team===x.id}">${esc(x.name)}</button>`).join('')}</div>`;
+  const kids=(ui.stAll?S.roster.filter(r=>r.active):rosterOf(ui.team)).map(r=>({r,t:statTot(r.id,from)})).filter(x=>x.t.games||!ui.stAll).sort((a,b)=>b.t.pts-a.t.pts||b.t.goals-a.t.goals||a.r.name.localeCompare(b.r.name));
+  const shown=ui.stAll?kids.slice(0,30):kids;
+  const games=(S.sgames||[]).filter(g=>ui.stAll||g.team===ui.team).sort((a,b)=>b.day.localeCompare(a.day));
+  const tbl=`<div class="sttable"><div class="sthead"><span>Player</span>${STATS.map(([,,c])=>`<span>${c}</span>`).join('')}<span>Pts</span></div>
+    ${shown.map(x=>`<div class="stline"><span><strong>${esc(x.r.name)}</strong>${ui.stAll?`<br><span class="small muted">${esc(team(x.r.team).name)}</span>`:''}${statLine(x.t)?`<br><span class="small muted">${esc(statLine(x.t))}</span>`:''}</span>${STATS.map(([k])=>`<span>${x.t[k]||'·'}</span>`).join('')}<span class="stpts">${x.t.pts}</span></div>`).join('')}</div>`;
+  const canAdd=S.teams.some(x=>canEdit(x.id));
+  return `<div class="row between"><h3 style="margin:0">Game stats</h3>${canAdd?'<button class="btn small" data-act="st-past">Add stats for a past game</button>':''}</div>
+  ${chips}<p class="small muted">This season. Goal 10 pts, assist 10, AA (assist before the assist) 5, save 5, defensive recovery 5.</p>
+  <div class="card">${shown.length?tbl:'<p class="muted">No game stats yet. Open a game day sheet and tap Enter game stats, or add a past game.</p>'}</div>
+  <h3>Games with stats</h3>${games.length?`<div class="plist">${games.map(g=>{const rows=S.pstats.filter(x=>x.g===g.id),gl=rows.reduce((n,x)=>n+x.goals,0);
+    const sc=rows.filter(x=>x.goals).map(x=>{const r=S.roster.find(y=>y.id===x.r);return r?r.name+(x.goals>1?' ('+x.goals+')':''):''}).filter(Boolean);
+    return `<button class="pcard" data-act="st-open" data-id="${g.id}"><span class="row between"><strong>${esc(fmtDay(g.day))}</strong><span class="pill">${esc(team(g.team).name)}</span></span><span class="ptitle">${g.opponent?'vs '+esc(g.opponent):'Game'}</span><span class="meta">${gl} goal${gl===1?'':'s'}${sc.length?': '+esc(sc.join(', ')):''}${g.lineup?'':'. Added as a past game'}</span></button>`}).join('')}</div>`:'<p class="muted small">No games with stats yet.</p>'}`}
+function sheetStatsCard(l){if(!S.statsReady)return '';const g=sgFor(l.id),ed=canEdit(l.team);
+  const rows=g?S.pstats.filter(x=>x.g===g.id).map(x=>({x,r:S.roster.find(y=>y.id===x.r)})).filter(o=>o.r).sort((a,b)=>statPtsOf(b.x)-statPtsOf(a.x)):[];
+  return `<div class="card noprint"><div class="row between"><strong>Game stats</strong>${ed?`<button class="btn small ${g?'ghost':''}" data-act="st-sheet" data-id="${l.id}">${g?'Edit game stats':'Enter game stats'}</button>`:''}</div>
+    ${rows.length?rows.map(o=>`<div class="row between attmine"><span>${esc(o.r.name)}: ${esc(statLine(o.x))}</span><strong>${statPtsOf(o.x)} pts</strong></div>`).join(''):'<p class="small muted" style="margin:4px 0 0">No stats entered for this game yet.</p>'}</div>`}
 /* ----- Game schedule (coaches: every team; parents: their child's team). No lineups here. ----- */
 function gamesHTML(list,o){const T=today();const days=[];list.forEach(g=>{let d=days[days.length-1];if(!d||d.day!==g.day)days.push(d={day:g.day,gs:[]});d.gs.push(g)});
   return days.map(d=>`<div class="pday"><h4>${esc(fmtDay(d.day))}${d.day===T?' <span class="pill done">Today</span>':''}</h4>
@@ -2234,7 +2389,11 @@ function schedView(){const T=today(),from=addDays(T,-14);if(ui.schAll===undefine
 function gamesView(){const p=player(ui.child);if(!p)return pendingView(S.children.find(c=>c.id===ui.child));
   if(S.gamesReady===false)return `<h2>Games</h2><div class="card"><p>The game schedule is coming soon. Check back after your coach finishes setting it up.</p></div>`;
   const T=today(),gs=(S.games||[]).filter(g=>g.team===p.team),up=gs.filter(g=>g.day>=T),past=gs.filter(g=>g.day<T).reverse().slice(0,6);
-  return `<h2>${esc(team(p.team).name)} games</h2><p class="muted small">Tap a map app for directions, or add a game to your calendar.</p>
+  const mine=(S.myStats||[]).filter(x=>x.roster_id===p.roster).sort((a,b)=>b.game.day.localeCompare(a.game.day));
+  const tot={goals:0,assists:0,aa:0,saves:0,recoveries:0};mine.forEach(x=>STATS.forEach(([k])=>tot[k]+=x[k]|0));
+  const statCard=p.roster&&mine.length?`<div class="card"><div class="row between"><strong>${esc(p.name)}\u2019s game stats</strong><span class="small muted">${statPtsOf(tot)} pts</span></div>
+    <p style="margin:4px 0 8px">${esc(statLine(tot))}</p>${mine.slice(0,5).map(x=>`<div class="row between attmine"><span>${esc(fmtDay(x.game.day))}${x.game.opponent?' vs '+esc(x.game.opponent):''}</span><span class="small">${esc(statLine(x))}</span></div>`).join('')}</div>`:'';
+  return `<h2>${esc(team(p.team).name)} games</h2>${statCard}<p class="muted small">Tap a map app for directions, or add a game to your calendar.</p>
   <h3>Coming up</h3>${up.length?gamesHTML(up,{showTeam:false}):'<p class="muted small">No games scheduled yet. Your coach adds them as they’re set.</p>'}
   ${past.length?`<h3>Recent</h3>${gamesHTML(past,{showTeam:false})}`:''}`}
 // Directions: one address, three map apps.
@@ -2250,6 +2409,7 @@ function luDetail(l){const ed=canEdit(l.team);const b=l.board&&S.boards.find(x=>
   ${l.address?`<div class="card luaddr"><strong>Address</strong><p style="margin:4px 0 8px">${esc(l.address)}</p>${mapLinks(l.address)}</div>`:''}
   <div class="noprint row wrapbtns"><button class="btn small" data-act="print-practice">Print or save as PDF</button>${ed?`<button class="btn small ghost" data-act="lu-edit" data-id="${l.id}">Edit</button><button class="btn small ghost" data-act="lu-copy" data-id="${l.id}">Reuse for next game</button>`:''}</div>
   <div class="noprint">${editBadge(l.team)}</div>
+  ${sheetStatsCard(l)}
   <div class="gdboard lusheet"><section><div class="lupitch">${luLineupSVG(l)}</div></section>
   <section><h3>Starting lineup</h3><table class="lutable">${starters}</table>
    <h3>Substitutes</h3><p>${subs.length?subs.join(', '):'<span class="muted">None listed</span>'}</p>
@@ -2278,8 +2438,10 @@ function lineupsView(){
 function gamedayView(){
   if(!S.gamedayReady)return `<h2>Game day</h2><div class="card"><h3>One more database step</h3><p>Game day needs a small addition to the club database. In Supabase, open the SQL Editor, start a new query, paste in the step 4 file (lobos-schema-4-gameday.sql) and click Run once. Then refresh this page.</p></div>`;
   const sub=ui.gd||'sched';
-  const head=`<div class="noprint"><h2>Game day</h2><div class="chips" role="group" aria-label="Game day section">${[['sched','Schedule'],['lineups','Game day sheets'],['board','Tactics board']].map(([v,l])=>`<button class="chip" data-act="gd-sub" data-v="${v}" aria-pressed="${sub===v}">${l}</button>`).join('')}</div></div>`;
+  const head=`<div class="noprint"><h2>Game day</h2><div class="chips" role="group" aria-label="Game day section">${[['sched','Schedule'],['lineups','Game day sheets'],['stats','Stats'],['board','Tactics board']].map(([v,l])=>`<button class="chip" data-act="gd-sub" data-v="${v}" aria-pressed="${sub===v}">${l}</button>`).join('')}</div></div>`;
+  if(ui.st)return statsEditor();
   if(sub==='sched')return head+schedView();
+  if(sub==='stats')return head+statsView();
   if(sub==='board')return (ui.tb?'':head)+(ui.tb?tbView():boardsListView());
   return (ui.lu||ui.luView?'':head)+lineupsView();
 }
@@ -2287,6 +2449,27 @@ async function gamedayAct(a,ds){
   switch(a){
     case 'gd-sub':ui.gd=ds.v;ui.tb=null;ui.lu=null;ui.luView=null;render();return true;
     case 'sch-all':ui.schAll=true;render();return true;
+    case 'st-all':ui.stAll=true;render();return true;
+    case 'st-teamf':ui.stAll=false;ui.team=ds.v;render();return true;
+    case 'st-past':{const t=canEdit(ui.team)?ui.team:((S.teams.find(x=>canEdit(x.id))||{}).id);if(!t)return true;stNew({team:t,day:today(),back:'stats'});render();window.scrollTo(0,0);return true;}
+    case 'st-open':{const g=S.sgames.find(x=>x.id===ds.id);if(!g)return true;if(g.lineup&&S.lineups.some(l=>l.id===g.lineup)&&!canEdit(g.team)){ui.gd='lineups';ui.luView=g.lineup;render();return true}
+      if(!canEdit(g.team)){toast('View only. You\u2019re not assigned to '+team(g.team).name);return true}stNew({...g,back:'stats'});render();window.scrollTo(0,0);return true;}
+    case 'st-sheet':{const l=S.lineups.find(x=>x.id===ds.id);if(!l)return true;const g=sgFor(l.id);stNew(g?{...g,back:'sheet'}:{team:l.team,day:l.day,opponent:l.opponent,lineup:l.id,back:'sheet'});render();window.scrollTo(0,0);return true;}
+    case 'st-step':{stSync();const v=((ui.st.vals[ds.id]=ui.st.vals[ds.id]||{})[ds.k]|0)+(+ds.v);ui.st.vals[ds.id][ds.k]=Math.max(0,Math.min(99,v));ui.st.dirty=true;
+      const el=document.querySelector(`[data-stat="${ds.id}|${ds.k}"]`);if(el)el.value=ui.st.vals[ds.id][ds.k];return true;}
+    case 'st-cancel':if(ui.st&&ui.st.dirty&&!confirm('Leave without saving these stats?'))return true;{const b=ui.st&&ui.st.back,lid=ui.st&&ui.st.lineup;ui.st=null;if(b==='sheet'&&lid){ui.gd='lineups';ui.luView=lid}render();}return true;
+    case 'st-delete':{if(!confirm('Delete the stats for this game?'))return true;const id=ui.st.id;chk(await sb.from('stat_games').delete().eq('id',id));
+      S.sgames=S.sgames.filter(g=>g.id!==id);S.pstats=S.pstats.filter(x=>x.g!==id);ui.st=null;render();toast('Game stats deleted');return true;}
+    case 'st-save':{stSync();const d=ui.st;if(!canEdit(d.team))return err('Pick a team you\u2019re assigned to.'),true;if(!/^\d{4}-\d{2}-\d{2}$/.test(d.day||''))return err('Pick the game date.'),true;
+      if(busy)return true;busy=true;
+      try{const ids=new Set(rosterOf(d.team).map(r=>r.id));const rows=Object.entries(d.vals).filter(([rid,v])=>ids.has(rid)&&STATS.some(([k])=>v[k]>0)).map(([rid,v])=>({roster_id:rid,team_id:d.team,goals:v.goals|0,assists:v.assists|0,aa:v.aa|0,saves:v.saves|0,recoveries:v.recoveries|0,updated_at:new Date().toISOString()}));
+        let gid=d.id;const head={team_id:d.team,day:d.day,opponent:d.opponent||null,lineup_id:d.lineup||null};
+        if(gid)chk(await sb.from('stat_games').update(head).eq('id',gid));else gid=chk(await sb.from('stat_games').insert({...head,created_by:S.session.uid}).select().single()).id;
+        chk(await sb.from('player_stats').delete().eq('stat_game_id',gid));
+        if(rows.length)chk(await sb.from('player_stats').insert(rows.map(r=>({...r,stat_game_id:gid}))));
+        S.sgames=[{id:gid,team:d.team,day:d.day,opponent:d.opponent||'',lineup:d.lineup||null},...S.sgames.filter(g=>g.id!==gid)];
+        S.pstats=[...S.pstats.filter(x=>x.g!==gid),...rows.map(r=>({g:gid,r:r.roster_id,team:r.team_id,goals:r.goals,assists:r.assists,aa:r.aa,saves:r.saves,recoveries:r.recoveries}))];
+        const b=d.back,lid=d.lineup;ui.st=null;if(b==='sheet'&&lid){ui.gd='lineups';ui.luView=lid}else ui.gd='stats';render();window.scrollTo(0,0);toast('Game stats saved')}finally{busy=false}return true;}
     case 'sch-team':ui.schAll=false;ui.team=ds.v;render();return true;
     case 'sched-open':ui.gd='lineups';ui.luView=ds.id;render();window.scrollTo(0,0);return true;
     case 'tb-new':tbNew(ds.v);render();window.scrollTo(0,0);return true;
@@ -2341,7 +2524,10 @@ async function gamedayAct(a,ds){
 }
 // Live updates inside the lineup editor without losing what's been typed.
 document.addEventListener('change',e=>{const el=e.target;
+  if(ui.st&&el.dataset&&el.dataset.stat!==undefined){ui.st.dirty=true;stSync();return}
+  if(ui.st&&el.id==='st-team'){stSync();ui.st.vals={};const y=window.scrollY;render();window.scrollTo(0,y);return}
   if(el.id==='ch-team'){chPickLoad(el.value);return}
+  if(el.id==='x-from'||el.id==='x-to'){if(el.id==='x-from')ui.xFrom=el.value;else ui.xTo=el.value;return}
   if(el.id==='att-day'){ui.attDay=el.value||today();const y=window.scrollY;render();window.scrollTo(0,y);return}
   if(el.id==='pr-team'&&ui.draft){syncDraft();const y=window.scrollY;render();window.scrollTo(0,y);return}
   if(ui.tb&&el.id==='tb-shape'){const T=ui.tb;tbSnap();T.formation=el.value;T.items=gdItems(T.format,T.formation,T.opp);tbRefresh()}
@@ -2552,6 +2738,14 @@ async function practiceAct(a,ds){
       busy=true;try{const saved=chk(await sb.from('practices').update({items,updated_by:S.session.uid,updated_at:new Date().toISOString()}).eq('id',cur.id).select().single());
       const p=mapPractice(saved);S.practices=S.practices.map(x=>x.id===p.id?p:x);const y=window.scrollY;render();window.scrollTo(0,y)}finally{busy=false}break;}
     case 'att-set':case 'att-allhere':case 'roster-add':case 'roster-remove':await attAct(a,ds);break;
+    case 'sq-all':ui.sqAll=true;render();break;
+    case 'sq-team':ui.sqAll=false;ui.team=ds.v;render();window.scrollTo(0,0);break;
+    case 'x-quick':{const T=today(),m0=T.slice(0,8)+'01';const [y,m]=T.split('-').map(Number),pm=new Date(y,m-2,1),pe=new Date(y,m-1,0),f2=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      [ui.xFrom,ui.xTo]=ds.v==='month'?[m0,T]:ds.v==='last'?[f2(pm),f2(pe)]:ds.v==='3m'?[addDays(T,-90),T]:[addDays(T,-364),T];{const yy=window.scrollY;render();window.scrollTo(0,yy)}break;}
+    case 'x-view':ui.xView={team:ds.v||null};render();window.scrollTo(0,0);break;
+    case 'x-close':ui.xView=null;render();break;
+    case 'x-team':case 'x-club':{const from=xFrom(),ids=a==='x-team'&&ds.v?[ds.v]:S.teams.map(t=>t.id).filter(t=>rosterOf(t).length);if(!ids.length){toast('No rosters yet');break}
+      const [rf,rt]=xRange();saveBlob(buildAttWorkbook(ids,from),`Lobos attendance ${a==='x-team'?team(ds.v).name:'club'} ${rf} to ${rt}.xlsx`.replace(/\s+/g,'-'));toast('Spreadsheet downloaded');break;}
     case 'p-all':ui.pAll=true;ui.pMore=false;render();break;
     case 'p-more':ui.pMore=true;render();break;
     case 'lo-add':{syncDraft();const lo=leftovers(ui.draft.team,ui.draft.id);if(!lo)break;const it=lo.items[+ds.i];if(it){ui.draft.items.push({plan_id:it.plan_id,title:it.title,minutes:it.minutes});render();toast('Added: '+it.title)}break;}
@@ -2596,7 +2790,7 @@ async function act(a,ds){
     case 'scan-open':ui.scan=null;ui.plan=ds.id;render();window.scrollTo(0,0);break;
     case 'edit-plan':ui.edit=ds.id;ui.dg=null;render();window.scrollTo(0,0);break;
     case 'cancel-edit':ui.edit=null;ui.prefill=null;ui.dg=null;render();break;
-    case 'team':ui.team=ds.v;if(ui.view==='practices')ui.pAll=false;if(ui.view==='gameday')ui.luAll=false;render();break;
+    case 'team':ui.team=ds.v;if(ui.view==='practices')ui.pAll=false;if(ui.view==='gameday')ui.luAll=false;if(ui.view==='squad')ui.sqAll=false;render();break;
     case 'game-ics':{const g=gameById(ds.id);if(!g)break;const url=URL.createObjectURL(new Blob([gameICS(g)],{type:'text/calendar'}));
       const a2=document.createElement('a');a2.href=url;a2.download=(team(g.team).name+(g.opponent?' vs '+g.opponent:'')).replace(/[^\w ]+/g,'').trim().replace(/\s+/g,'-')+'.ics';document.body.appendChild(a2);a2.click();setTimeout(()=>{URL.revokeObjectURL(url);a2.remove()},1500);break;}
     case 'board-kind':ui.boardKind=ds.v;if(S.session.role!=='coach')await loadBoard();render();break;
@@ -2690,8 +2884,9 @@ async function act(a,ds){
 // so the browser Back button and the iPad/iPhone swipe back step out one level instead of leaving the site.
 function navLayers(){const L=[];if(!S.session)return L;const v=ui.view;
   if(v==='plans'){if(ui.plan)L.push('plan');if(ui.scan)L.push('scan');if(ui.edit)L.push('edit');if(ui.edit&&ui.dg&&ui.dg.cur!==null&&ui.dg.cur!==undefined)L.push('dg')}
+  else if(v==='squad'){if(ui.xView)L.push('xv')}
   else if(v==='practices'){if(ui.practice)L.push('practice');if(ui.pedit)L.push('pedit');if(ui.pedit&&ui.peek)L.push('peek')}
-  else if(v==='gameday'){if(ui.tb)L.push('tb');if(ui.luView)L.push('luView');if(ui.lu)L.push('lu')}
+  else if(v==='gameday'){if(ui.tb)L.push('tb');if(ui.luView)L.push('luView');if(ui.lu)L.push('lu');if(ui.st)L.push('st')}
   return L}
 let navDepth=0,navSkip=0;
 function navSync(){const d=navLayers().length;
@@ -2710,6 +2905,8 @@ async function navBack(){
     case 'pedit':if(confirm(NAV_LEAVE))await act('practice-cancel',{});return;
     case 'practice':return act('practice-back',{});
     case 'lu':if(confirm(NAV_LEAVE))await act('lu-cancel',{});return;
+    case 'st':return act('st-cancel',{});
+    case 'xv':return act('x-close',{});
     case 'luView':return act('lu-back',{});
     case 'tb':return act('tb-close',{});
   }}
