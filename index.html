@@ -193,6 +193,9 @@ details.card summary{cursor:pointer}
 .maplinks{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 4px}.maplinks .btn{text-decoration:none}
 .luaddr{margin:10px 0}
 .attmine{padding:6px 0;border-top:1px solid var(--line);font-size:.9rem}
+.favchip[aria-pressed="false"],.favedit{border-style:dashed}
+.favedit{color:var(--muted)}
+.favpanel{margin:4px 0 10px}.favgrid{flex-wrap:wrap}
 .gtag{display:inline-block;font-size:.7rem;font-weight:700;color:#6B4E00;background:#FFF1C7;border-radius:999px;padding:1px 8px;vertical-align:2px}
 .attsum{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
 .attpill{font-size:.78rem;font-weight:700;border-radius:999px;padding:3px 10px;background:var(--soft);color:var(--muted)}
@@ -1352,7 +1355,7 @@ function planForm(){
 }
 function teamChips(){
   if(!ui.team)ui.team=S.teams[0].id;
-  return `<div class="chips" role="group" aria-label="Team">${S.teams.map(t=>`<button class="chip" data-act="team" data-v="${t.id}" aria-pressed="${ui.team===t.id}">${esc(t.name)}</button>`).join('')}</div>`;
+  return `<div class="chips" role="group" aria-label="Team">${favTeams().map(t=>`<button class="chip" data-act="team" data-v="${t.id}" aria-pressed="${ui.team===t.id}">${teamLabel(t)}</button>`).join('')}${favEditChip()}</div>${favPanel()}`;
 }
 function homeworkView(){
   const chips=teamChips();
@@ -1505,6 +1508,7 @@ async function loadCoachData(){
   ]);
   // Game stats need step 11 of the database setup.
   S.statsReady=!!(sgs&&pss);setStats(sgs||[],pss||[]);
+  await loadFavs();
   // Attendance needs step 5 of the database setup; until then Squad shows a reminder.
   S.attReady=!!(ros&&att);S.roster=(ros||[]).map(r=>({id:r.id,team:r.team_id,name:r.name,number:r.number||'',active:r.active!==false,guest:!!r.guest}));
   S.att={};(att||[]).forEach(a=>{S.att[a.roster_id+'|'+a.day]={status:a.status,team:a.team_id}});
@@ -1690,8 +1694,8 @@ function squadAllView(){const from=addDays(today(),-29),ap=S.session.approver;
   const coachesOf=t=>[...new Set([...S.teamCoaches.filter(a=>a.team_id===t).map(a=>coachName(a.coach_id))])].filter(Boolean);
   return `<div class="pstats">${stat(S.teams.length,'teams')}${stat(kids.length,'players on rosters')}${stat(kids.filter(r=>r.guest).length,'guest spots')}${stat(S.players.length,'families on the app')}${stat(S.pending.length,'waiting for approval')}</div>
   ${S.attReady?exportCard(null):''}
-  <div class="plist">${S.teams.map(t=>{const rs=rosterOf(t.id),g=rs.filter(r=>r.guest).length,app=S.players.filter(p=>p.team===t.id).length,cs=coachesOf(t.id);
-    return `<button class="pcard sqcard" data-act="sq-team" data-v="${t.id}"><span class="row between"><strong>${esc(t.name)}</strong><span class="pill">${rs.length} player${rs.length===1?'':'s'}</span></span>
+  <div class="plist">${favTeams().filter(t=>inScope(t.id)).map(t=>{const rs=rosterOf(t.id),g=rs.filter(r=>r.guest).length,app=S.players.filter(p=>p.team===t.id).length,cs=coachesOf(t.id);
+    return `<button class="pcard sqcard" data-act="sq-team" data-v="${t.id}"><span class="row between"><strong>${teamLabel(t)}</strong><span class="pill">${rs.length} player${rs.length===1?'':'s'}</span></span>
     <span class="meta">${g?g+' guest'+(g===1?'':'s')+'. ':''}${app} on the app. Join code ${esc(t.code)}</span>
     <span class="meta">Attendance, last 30 days: ${S.attReady?rate(t.id):'not set up'}</span>
     <span class="small muted">Coaches: ${cs.length?esc(cs.join(', ')):'none assigned'}</span></button>`}).join('')}</div>
@@ -1765,7 +1769,7 @@ function rosterMatch(p,t){const claimed=new Set(S.players.filter(x=>x.id!==p.id&
 function squadView(){
   if(ui.xView)return attSheetView();
   if(!ui.team)ui.team=S.teams[0].id;if(ui.sqAll===undefined)ui.sqAll=true;
-  const chips=`<div class="chips" role="group" aria-label="Team"><button class="chip" data-act="sq-all" aria-pressed="${!!ui.sqAll}">All teams</button>${S.teams.map(x=>`<button class="chip" data-act="team" data-v="${x.id}" aria-pressed="${!ui.sqAll&&ui.team===x.id}">${esc(x.name)}</button>`).join('')}</div>`;const T=today();const t=team(ui.team);const ap=S.session.approver;
+  const chips=`<div class="chips" role="group" aria-label="Team"><button class="chip" data-act="sq-all" aria-pressed="${!!ui.sqAll&&!ui.favOnly}">All teams</button>${favOnlyChip('sqAll')}${favTeams().map(x=>`<button class="chip" data-act="team" data-v="${x.id}" aria-pressed="${!ui.sqAll&&ui.team===x.id}">${teamLabel(x)}</button>`).join('')}${favEditChip()}</div>${favPanel()}`;const T=today();const t=team(ui.team);const ap=S.session.approver;
   const ps=S.players.filter(p=>p.team===ui.team);
   const doneToday=ps.filter(p=>dayset(p.id).has(T)).length;
   const link=location.origin+location.pathname+'?join='+encodeURIComponent(t.code);
@@ -1822,6 +1826,12 @@ function nav(){
   const tabs=S.session.role==='coach'?[['plans','Plans'],['practices','Practices'],['gameday','Game day'],['homework','Reps'],['squad','Squad'+(S.pending.length?` (${S.pending.length})`:'')],['board','Leaderboard']]:[['today','Today'],['games','Games'],['board','Leaderboard'],['badges','Badges'],['family','Family']];
   return `<nav class="tabs" aria-label="Sections"><div class="wrap">${tabs.map(([v,l])=>{const sh={practices:'Practice',gameday:'Games',board:'Ranks'}[v];return `<button data-act="nav" data-v="${v}" ${ui.view===v?'aria-current="page"':''}>${sh?`<span class="tl">${l}</span><span class="ts">${sh}</span>`:l}</button>`}).join('')}</div></nav>`;
 }
+let lastRenderView=null;
+// Horizontal button rows (teams, formats, filters) keep their scroll spot after a redraw,
+// and the selected button is nudged into view if it's off screen.
+function restoreChips(root,keep){const rows=[...root.querySelectorAll('.chips')],used={};
+  rows.forEach(el=>{const lab=el.getAttribute('aria-label')||'',k=used[lab]=(used[lab]||0);used[lab]++;const m=keep.filter(x=>x[0]===lab)[k];if(m&&m[1])el.scrollLeft=m[1];
+    const on=el.querySelector('[aria-pressed="true"]');if(on&&el.scrollWidth>el.clientWidth){const a=on.offsetLeft-el.offsetLeft,b=a+on.offsetWidth;if(a<el.scrollLeft||b>el.scrollLeft+el.clientWidth)el.scrollLeft=Math.max(0,a-24)}})}
 function render(){setTimeout(dgEditing,0);if(ui.peek&&!(ui.view==='practices'&&ui.pedit)){ui.peek=null;peekDraw()}setTimeout(navSync,0);
   const app=document.getElementById('app');
   if(BOOT.state==='loading'){app.innerHTML=`<div class="login">${WORDMARK}<p class="muted">Loading\u2026</p></div>`;return}
@@ -1834,7 +1844,8 @@ function render(){setTimeout(dgEditing,0);if(ui.peek&&!(ui.view==='practices'&&u
   let body=null;
   if(coach&&ui.view==='plans'&&!S.plans.length&&!ui.edit)body=starterView();
   if(!coach&&ui.view!=='family'){const c=S.children.find(c=>c.id===ui.child);if(!c||c.status!=='active')body=pendingView(c)}
-  app.innerHTML=header()+nav()+`<main>${body||views[ui.view]()}</main>`;
+  const keepX=lastRenderView===ui.view?[...app.querySelectorAll('.chips')].map(el=>[el.getAttribute('aria-label')||'',el.scrollLeft]):[];
+  app.innerHTML=header()+nav()+`<main>${body||views[ui.view]()}</main>`;lastRenderView=ui.view;restoreChips(app,keepX);
 }
 const err=(m,id='err')=>{const e=document.getElementById(id);if(e)e.textContent=m};
 const val=id=>(document.getElementById(id)?.value||'').trim();
@@ -2327,6 +2338,27 @@ function statTot(rid,from){const t={...statZero(),pts:0,games:0};const gd={};(S.
   (S.pstats||[]).forEach(x=>{if(x.r!==rid)return;if(from&&!(gd[x.g]>=from))return;STATS.forEach(([k])=>t[k]+=x[k]);t.played+=x.played|0;t.games++});t.pts=statPtsOf(t);return t}
 function statLine(t){const parts=STATS.filter(([k])=>t[k]).map(([k,,,,ic])=>ic+' '+t[k]+' '+STAT_ONE[k][t[k]===1?0:1]);
   if(t.played)parts.unshift(PLAYED_ICON+' '+(t.played>1||t.games>1?t.played+' game'+(t.played===1?'':'s'):'played'));return parts.join(', ')}
+/* ----- Favorite teams (per coach; saved in the club database, or on this device before step 13) ----- */
+const favSet=()=>S.favs||(S.favs=new Set());
+const favTeams=()=>{const f=favSet();return [...S.teams.filter(t=>f.has(t.id)),...S.teams.filter(t=>!f.has(t.id))]};
+const teamLabel=t=>(favSet().has(t.id)?'\u2605 ':'')+esc(t.name);
+const inScope=t=>!ui.favOnly||!favSet().size||favSet().has(t);
+function favOnlyChip(flag){return favSet().size?`<button class="chip favchip" data-act="fav-only" data-f="${flag}" aria-pressed="${!!ui[flag]&&!!ui.favOnly}">\u2605 My teams</button>`:''}
+function favEditChip(){return S.session&&S.session.role==='coach'?`<button class="chip favedit" data-act="fav-edit" aria-pressed="${!!ui.favOpen}" title="Choose favorite teams">${favSet().size?'\u2605 Edit':'\u2606 Favorites'}</button>`:''}
+function favPanel(){if(!ui.favOpen)return '';return `<div class="card favpanel"><div class="row between"><strong>Your favorite teams</strong><button class="btn small" data-act="fav-edit">Done</button></div>
+  <p class="small muted" style="margin:4px 0 8px">Tap a team to star it. Starred teams show first everywhere, and <strong>\u2605 My teams</strong> shows just them on the All teams pages. Only you see your favorites.</p>
+  <div class="chips wrapdesk favgrid">${S.teams.map(t=>`<button class="chip" data-act="fav-toggle" data-v="${t.id}" aria-pressed="${favSet().has(t.id)}">${favSet().has(t.id)?'\u2605':'\u2606'} ${esc(t.name)}</button>`).join('')}</div></div>`}
+const FAV_KEY=()=>'lobos.favs.'+((S.session&&S.session.uid)||'');
+async function loadFavs(){let ids=null;
+  try{const {data,error}=await sb.from('coach_favorites').select('team_id').eq('coach_id',S.session.uid);if(!error){ids=(data||[]).map(r=>r.team_id);S.favDb=true}}catch(e){}
+  if(!ids){S.favDb=false;try{ids=JSON.parse(localStorage.getItem(FAV_KEY())||'[]')}catch(e){ids=[]}}
+  S.favs=new Set(ids.filter(id=>S.teams.some(t=>t.id===id)));
+  if(S.favs.size&&!ui.team)ui.team=favTeams()[0].id}
+async function favToggle(id){const f=favSet(),on=!f.has(id);if(on)f.add(id);else f.delete(id);
+  if(S.favDb){const r=on?await sb.from('coach_favorites').insert({coach_id:S.session.uid,team_id:id}):await sb.from('coach_favorites').delete().match({coach_id:S.session.uid,team_id:id});
+    if(r.error){S.favDb=false}}
+  try{localStorage.setItem(FAV_KEY(),JSON.stringify([...f]))}catch(e){}
+  if(!f.size)ui.favOnly=false}
 const sgFor=lid=>(S.sgames||[]).find(g=>g.lineup===lid);
 function stNew(o){const vals={};if(o.id)(S.pstats||[]).filter(x=>x.g===o.id).forEach(x=>{const v={played:x.played|0};STATS.forEach(([k])=>v[k]=x[k]);vals[x.r]=v});
   // New stats from a game day sheet: everyone in the lineup starts as "showed up".
@@ -2354,10 +2386,10 @@ function statsEditor(){const d=ui.st,lu=d.lineup&&S.lineups.find(l=>l.id===d.lin
 function statsView(){
   if(!S.statsReady)return '<div class="card"><p>Game stats need the step 11 database file. In Supabase, run lobos-schema-11-game-stats.sql once, then refresh.</p></div>';
   if(ui.stAll===undefined)ui.stAll=true;const from=addDays(today(),-364);
-  const chips=`<div class="chips" role="group" aria-label="Team"><button class="chip" data-act="st-all" aria-pressed="${!!ui.stAll}">All teams</button>${S.teams.map(x=>`<button class="chip" data-act="st-teamf" data-v="${x.id}" aria-pressed="${!ui.stAll&&ui.team===x.id}">${esc(x.name)}</button>`).join('')}</div>`;
-  const kids=(ui.stAll?S.roster.filter(r=>r.active):rosterOf(ui.team)).map(r=>({r,t:statTot(r.id,from)})).filter(x=>x.t.games||!ui.stAll).sort((a,b)=>b.t.pts-a.t.pts||b.t.goals-a.t.goals||a.r.name.localeCompare(b.r.name));
+  const chips=`<div class="chips" role="group" aria-label="Team"><button class="chip" data-act="st-all" aria-pressed="${!!ui.stAll&&!ui.favOnly}">All teams</button>${favOnlyChip('stAll')}${favTeams().map(x=>`<button class="chip" data-act="st-teamf" data-v="${x.id}" aria-pressed="${!ui.stAll&&ui.team===x.id}">${teamLabel(x)}</button>`).join('')}${favEditChip()}</div>${favPanel()}`;
+  const kids=(ui.stAll?S.roster.filter(r=>r.active&&inScope(r.team)):rosterOf(ui.team)).map(r=>({r,t:statTot(r.id,from)})).filter(x=>x.t.games||!ui.stAll).sort((a,b)=>b.t.pts-a.t.pts||b.t.goals-a.t.goals||a.r.name.localeCompare(b.r.name));
   const shown=ui.stAll?kids.slice(0,30):kids;
-  const games=(S.sgames||[]).filter(g=>ui.stAll||g.team===ui.team).sort((a,b)=>b.day.localeCompare(a.day));
+  const games=(S.sgames||[]).filter(g=>ui.stAll?inScope(g.team):g.team===ui.team).sort((a,b)=>b.day.localeCompare(a.day));
   const tbl=`<div class="sttable"><div class="sthead"><span>Player</span><span title="Showed up">${PLAYED_ICON}</span>${STATS.map(([,n,,,ic])=>`<span title="${esc(n)}">${ic}</span>`).join('')}<span>Pts</span></div>
     ${shown.map(x=>`<div class="stline"><span><strong>${esc(x.r.name)}</strong>${ui.stAll?`<br><span class="small muted">${esc(team(x.r.team).name)}</span>`:''}${statLine(x.t)?`<br><span class="small muted">${esc(statLine(x.t))}</span>`:''}</span><span>${x.t.played||'\u00b7'}</span>${STATS.map(([k])=>`<span>${x.t[k]||'\u00b7'}</span>`).join('')}<span class="stpts">${x.t.pts}</span></div>`).join('')}</div>`;
   const canAdd=S.teams.some(x=>canEdit(x.id));
@@ -2392,8 +2424,8 @@ function kickMin(k){const m=String(k||'').match(/(\d{1,2})(?::(\d{2}))?\s*([ap])
 const gameKey=g=>g.day+String(kickMin(g.kickoff)).padStart(4,'0')+team(g.team).name;
 function gameById(id){return (S.games||[]).find(g=>g.id===id)||(S.lineups||[]).find(g=>g.id===id)}
 function schedView(){const T=today(),from=addDays(T,-14);if(ui.schAll===undefined)ui.schAll=true;
-  const chips=`<div class="chips" role="group" aria-label="Team"><button class="chip" data-act="sch-all" aria-pressed="${!!ui.schAll}">All teams</button>${S.teams.map(x=>`<button class="chip" data-act="sch-team" data-v="${x.id}" aria-pressed="${!ui.schAll&&ui.team===x.id}">${esc(x.name)}</button>`).join('')}</div>`;
-  const mine=S.lineups.filter(l=>ui.schAll||l.team===ui.team),key=gameKey;
+  const chips=`<div class="chips" role="group" aria-label="Team"><button class="chip" data-act="sch-all" aria-pressed="${!!ui.schAll&&!ui.favOnly}">All teams</button>${favOnlyChip('schAll')}${favTeams().map(x=>`<button class="chip" data-act="sch-team" data-v="${x.id}" aria-pressed="${!ui.schAll&&ui.team===x.id}">${teamLabel(x)}</button>`).join('')}${favEditChip()}</div>${favPanel()}`;
+  const mine=S.lineups.filter(l=>ui.schAll?inScope(l.team):l.team===ui.team),key=gameKey;
   const up=mine.filter(g=>g.day>=T).sort((a,b)=>key(a).localeCompare(key(b))),past=mine.filter(g=>g.day<T&&g.day>=from).sort((a,b)=>key(b).localeCompare(key(a)));
   return `${chips}<p class="small muted">Every game from the game day sheets. Families see the same schedule for their own team, without lineups or notes.</p>
   <h3>Coming up</h3>${up.length?gamesHTML(up,{showTeam:true,coach:true}):'<p class="muted small">No games scheduled yet. Create a game day sheet to add one.</p>'}
@@ -2431,11 +2463,11 @@ function lineupsView(){
   if(ui.lu)return luEditorView();
   if(ui.luView){const l=S.lineups.find(x=>x.id===ui.luView);if(l)return luDetail(l);ui.luView=null}
   if(!ui.team)ui.team=S.teams[0].id;if(ui.luAll===undefined)ui.luAll=true;const T=today();
-  const chips=`<div class="chips" role="group" aria-label="Team"><button class="chip" data-act="lu-all" aria-pressed="${!!ui.luAll}">All teams</button>${S.teams.map(x=>`<button class="chip" data-act="team" data-v="${x.id}" aria-pressed="${!ui.luAll&&ui.team===x.id}">${esc(x.name)}</button>`).join('')}</div>`;
+  const chips=`<div class="chips" role="group" aria-label="Team"><button class="chip" data-act="lu-all" aria-pressed="${!!ui.luAll&&!ui.favOnly}">All teams</button>${favOnlyChip('luAll')}${favTeams().map(x=>`<button class="chip" data-act="team" data-v="${x.id}" aria-pressed="${!ui.luAll&&ui.team===x.id}">${teamLabel(x)}</button>`).join('')}${favEditChip()}</div>${favPanel()}`;
   if(ui.luAll){const byDay=(ls,cap)=>{const days=[];ls.forEach(l=>{let d=days[days.length-1];if(!d||d.day!==l.day)days.push(d={day:l.day,ls:[]});d.ls.push(l)});
       return (cap?days.slice(0,cap):days).map(d=>`<div class="pday"><h4>${esc(fmtDay(d.day))}<span class="small muted"> ${d.ls.length} game${d.ls.length===1?'':'s'}${d.day===T?', today':''}</span></h4><div class="plist">${d.ls.map(l=>`<button class="pcard" data-act="lu-open" data-id="${l.id}"><span class="row between"><strong>${esc(team(l.team).name)}</strong><span class="pill">${esc(l.format)}</span></span><span class="ptitle">${l.opponent?'vs '+esc(l.opponent):'Game day'}</span><span class="meta">${esc(l.formation)}. ${l.slots.filter(s=>s.player_id).length} of ${l.slots.length} positions set${l.kickoff?'. '+esc(l.kickoff):''}${l.location?'. '+esc(l.location):''}</span></button>`).join('')}</div></div>`).join('')
         +(cap&&days.length>cap?`<button class="btn ghost small" data-act="lu-more">Show all ${days.length} days</button>`:'')};
-    const nm=l=>team(l.team).name,up=S.lineups.filter(l=>l.day>=T).sort((a,b)=>a.day.localeCompare(b.day)||nm(a).localeCompare(nm(b))),past=S.lineups.filter(l=>l.day<T).sort((a,b)=>b.day.localeCompare(a.day)||nm(a).localeCompare(nm(b)));
+    const nm=l=>team(l.team).name,up=S.lineups.filter(l=>l.day>=T&&inScope(l.team)).sort((a,b)=>a.day.localeCompare(b.day)||nm(a).localeCompare(nm(b))),past=S.lineups.filter(l=>l.day<T&&inScope(l.team)).sort((a,b)=>b.day.localeCompare(a.day)||nm(a).localeCompare(nm(b)));
     return `<div class="row between"><h3 style="margin:0">Game day sheets</h3>${S.teams.some(x=>canEdit(x.id))?'<button class="btn small" data-act="lu-new">New game day sheet</button>':''}</div>
     ${chips}<p class="small muted">${S.lineups.length} sheet${S.lineups.length===1?'':'s'} across the club, ${up.length} coming up.</p>
     <h3>Coming up</h3>${up.length?byDay(up):'<p class="muted small">No upcoming games set across the club.</p>'}
@@ -2460,8 +2492,8 @@ function gamedayView(){
 async function gamedayAct(a,ds){
   switch(a){
     case 'gd-sub':ui.gd=ds.v;ui.tb=null;ui.lu=null;ui.luView=null;render();return true;
-    case 'sch-all':ui.schAll=true;render();return true;
-    case 'st-all':ui.stAll=true;render();return true;
+    case 'sch-all':ui.schAll=true;ui.favOnly=false;render();return true;
+    case 'st-all':ui.stAll=true;ui.favOnly=false;render();return true;
     case 'st-teamf':ui.stAll=false;ui.team=ds.v;render();return true;
     case 'st-past':{const t=canEdit(ui.team)?ui.team:((S.teams.find(x=>canEdit(x.id))||{}).id);if(!t)return true;stNew({team:t,day:today(),back:'stats'});render();window.scrollTo(0,0);return true;}
     case 'st-open':{const g=S.sgames.find(x=>x.id===ds.id);if(!g)return true;if(g.lineup&&S.lineups.some(l=>l.id===g.lineup)&&!canEdit(g.team)){ui.gd='lineups';ui.luView=g.lineup;render();return true}
@@ -2487,6 +2519,9 @@ async function gamedayAct(a,ds){
         S.sgames=[{id:gid,team:d.team,day:d.day,opponent:d.opponent||'',lineup:d.lineup||null},...S.sgames.filter(g=>g.id!==gid)];
         S.pstats=[...S.pstats.filter(x=>x.g!==gid),...rows.map(r=>{const x={g:gid,r:r.roster_id,team:r.team_id,played:r.played?1:0};STATS.forEach(([k])=>x[k]=r[k]);return x})];
         const b=d.back,lid=d.lineup;ui.st=null;if(b==='sheet'&&lid){ui.gd='lineups';ui.luView=lid}else ui.gd='stats';render();window.scrollTo(0,0);toast('Game stats saved')}finally{busy=false}return true;}
+    case 'fav-edit':ui.favOpen=!ui.favOpen;render();return true;
+    case 'fav-toggle':await favToggle(ds.v);render();return true;
+    case 'fav-only':ui[ds.f]=true;ui.favOnly=true;render();return true;
     case 'sch-team':ui.schAll=false;ui.team=ds.v;render();return true;
     case 'sched-open':ui.gd='lineups';ui.luView=ds.id;render();window.scrollTo(0,0);return true;
     case 'tb-new':tbNew(ds.v);render();window.scrollTo(0,0);return true;
@@ -2511,7 +2546,7 @@ async function gamedayAct(a,ds){
         const saved=T.id?chk(await sb.from('tactical_boards').update(row).eq('id',T.id).select().single()):chk(await sb.from('tactical_boards').insert({...row,created_by:S.session.uid}).select().single());
         const b=mapBoard(saved);S.boards=[b,...S.boards.filter(x=>x.id!==b.id)];T.id=b.id;T.dirty=false;render();toast('Setup saved')}finally{busy=false}return true;}
     case 'tb-delete':{if(!confirm('Delete this tactical setup for all coaches?'))return true;chk(await sb.from('tactical_boards').delete().eq('id',ui.tb.id));S.boards=S.boards.filter(x=>x.id!==ui.tb.id);ui.tb=null;render();toast('Setup deleted');return true;}
-    case 'lu-all':ui.luAll=true;ui.luMore=false;ui.luView=null;render();return true;
+    case 'lu-all':ui.luAll=true;ui.favOnly=false;ui.luMore=false;ui.luView=null;render();return true;
     case 'lu-more':ui.luMore=true;render();return true;
     case 'lu-new':ui.lu=luNewDraft(canEdit(ui.team)?ui.team:((S.teams.find(x=>canEdit(x.id))||{}).id||ui.team));render();window.scrollTo(0,0);return true;
     case 'lu-open':ui.luView=ds.id;render();window.scrollTo(0,0);return true;
@@ -2582,7 +2617,7 @@ function practicesView(){
   if(ui.pedit&&ui.draft)return practiceEditor();
   if(ui.practice){const p=S.practices.find(x=>x.id===ui.practice);if(p)return practiceDetail(p);ui.practice=null}
   if(!ui.team)ui.team=S.teams[0].id;if(ui.pAll===undefined)ui.pAll=true;
-  const chips=`<div class="chips" role="group" aria-label="Team"><button class="chip" data-act="p-all" aria-pressed="${!!ui.pAll}">All teams</button>${S.teams.map(x=>`<button class="chip" data-act="team" data-v="${x.id}" aria-pressed="${!ui.pAll&&ui.team===x.id}">${esc(x.name)}</button>`).join('')}</div>`;
+  const chips=`<div class="chips" role="group" aria-label="Team"><button class="chip" data-act="p-all" aria-pressed="${!!ui.pAll&&!ui.favOnly}">All teams</button>${favOnlyChip('pAll')}${favTeams().map(x=>`<button class="chip" data-act="team" data-v="${x.id}" aria-pressed="${!ui.pAll&&ui.team===x.id}">${teamLabel(x)}</button>`).join('')}${favEditChip()}</div>${favPanel()}`;
   if(ui.pAll)return practicesAllView(chips);
   const T=today();const t=ui.team;
   const list=S.practices.filter(p=>p.team===t);
@@ -2604,7 +2639,7 @@ function pByDay(list,cap){const days=[];list.forEach(p=>{let d=days[days.length-
   const shown=cap?days.slice(0,cap):days;
   return shown.map(d=>`<div class="pday"><h4>${esc(fmtDay(d.day))}<span class="small muted"> ${d.ps.length} practice${d.ps.length===1?'':'s'}${d.day===today()?', today':''}</span></h4><div class="plist">${d.ps.map(p=>pCard(p,true)).join('')}</div></div>`).join('')
     +(cap&&days.length>cap?`<button class="btn ghost small" data-act="p-more">Show all ${days.length} days</button>`:'')}
-function practicesAllView(chips){const T=today(),all=S.practices;
+function practicesAllView(chips){const T=today(),all=S.practices.filter(p=>inScope(p.team));
   const up=all.filter(p=>p.day>=T&&p.status!=='done').sort((a,b)=>a.day.localeCompare(b.day)||team(a.team).name.localeCompare(team(b.team).name));
   const past=all.filter(p=>!(p.day>=T&&p.status!=='done')).sort((a,b)=>b.day.localeCompare(a.day)||team(a.team).name.localeCompare(team(b.team).name));
   const done=all.filter(p=>p.status==='done'),part=done.filter(pPartial).length,mon=T.slice(0,7),thisMon=all.filter(p=>p.day.slice(0,7)===mon).length;
@@ -2755,7 +2790,7 @@ async function practiceAct(a,ds){
       busy=true;try{const saved=chk(await sb.from('practices').update({items,updated_by:S.session.uid,updated_at:new Date().toISOString()}).eq('id',cur.id).select().single());
       const p=mapPractice(saved);S.practices=S.practices.map(x=>x.id===p.id?p:x);const y=window.scrollY;render();window.scrollTo(0,y)}finally{busy=false}break;}
     case 'att-set':case 'att-allhere':case 'roster-add':case 'roster-remove':await attAct(a,ds);break;
-    case 'sq-all':ui.sqAll=true;render();break;
+    case 'sq-all':ui.sqAll=true;ui.favOnly=false;render();break;
     case 'sq-team':ui.sqAll=false;ui.team=ds.v;render();window.scrollTo(0,0);break;
     case 'x-quick':{const T=today(),m0=T.slice(0,8)+'01';const [y,m]=T.split('-').map(Number),pm=new Date(y,m-2,1),pe=new Date(y,m-1,0),f2=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       [ui.xFrom,ui.xTo]=ds.v==='month'?[m0,T]:ds.v==='last'?[f2(pm),f2(pe)]:ds.v==='3m'?[addDays(T,-90),T]:[addDays(T,-364),T];{const yy=window.scrollY;render();window.scrollTo(0,yy)}break;}
@@ -2763,7 +2798,7 @@ async function practiceAct(a,ds){
     case 'x-close':ui.xView=null;render();break;
     case 'x-team':case 'x-club':{const from=xFrom(),ids=a==='x-team'&&ds.v?[ds.v]:S.teams.map(t=>t.id).filter(t=>rosterOf(t).length);if(!ids.length){toast('No rosters yet');break}
       const [rf,rt]=xRange();saveBlob(buildAttWorkbook(ids,from),`Lobos attendance ${a==='x-team'?team(ds.v).name:'club'} ${rf} to ${rt}.xlsx`.replace(/\s+/g,'-'));toast('Spreadsheet downloaded');break;}
-    case 'p-all':ui.pAll=true;ui.pMore=false;render();break;
+    case 'p-all':ui.pAll=true;ui.favOnly=false;ui.pMore=false;render();break;
     case 'p-more':ui.pMore=true;render();break;
     case 'lo-add':{syncDraft();const lo=leftovers(ui.draft.team,ui.draft.id);if(!lo)break;const it=lo.items[+ds.i];if(it){ui.draft.items.push({plan_id:it.plan_id,title:it.title,minutes:it.minutes});render();toast('Added: '+it.title)}break;}
     case 'lo-all':{syncDraft();const lo=leftovers(ui.draft.team,ui.draft.id);if(!lo)break;const have=new Set(ui.draft.items.map(i=>i.plan_id));let n=0;lo.items.forEach(it=>{if(!have.has(it.plan_id)){ui.draft.items.push({plan_id:it.plan_id,title:it.title,minutes:it.minutes});n++}});render();toast(n?`Added ${n} from last time`:'Already in this practice');break;}
