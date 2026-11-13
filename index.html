@@ -195,6 +195,26 @@ details.card summary{cursor:pointer}
 .attmine{padding:6px 0;border-top:1px solid var(--line);font-size:.9rem}
 .tbgroup{display:flex;align-items:center;gap:10px;justify-content:space-between;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px 10px;margin:6px 0;font-weight:700;font-size:.9rem}
 .tbfs .tbgroup{position:absolute;left:50%;transform:translateX(-50%);bottom:max(8px,env(safe-area-inset-bottom));z-index:2;color:var(--ink)}
+.notebtn{padding:2px 0;margin-left:2px}
+.notepanel{background:var(--soft);border-radius:10px;padding:10px 12px;margin:6px 0 10px}
+.noteitem{border-top:1px solid var(--line);padding:6px 0}.noteitem:first-of-type{border-top:0}
+.noteadd .chips{flex-wrap:wrap;overflow:visible}
+.noteadd{border-top:1px solid var(--line);padding-top:8px;margin-top:6px}.noteadd select,.noteadd textarea{margin:6px 0}
+.nflag{display:inline-block;font-size:.72rem;font-weight:700;border-radius:999px;padding:1px 8px;margin-left:4px;vertical-align:1px;white-space:nowrap}
+.nflag.up{background:#E3F5E8;color:#1E7B34}.nflag.down{background:#FFF4D6;color:#8A5A00}.nflag.stay{background:#ECEFF4;color:#4A5568}
+.trycard{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:12px;padding:10px 12px;margin:0 0 10px}
+.trycard.here{border-left-color:#1E7B34}
+.tryarr{border:1.5px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:5px 11px;font:inherit;font-size:.82rem;font-weight:700;cursor:pointer;white-space:nowrap}
+.tryarr[aria-pressed="true"]{background:#E3F5E8;border-color:#1E7B34;color:#1E7B34}
+.trybtns{margin-top:8px;gap:6px;align-items:center}.trybtns select{width:auto;margin:0;max-width:150px;padding:6px 8px;font-size:.85rem}
+.trysize input{width:62px;display:inline-block;margin:0 0 0 4px;padding:5px 8px}
+.trybar{display:flex;flex-wrap:wrap;gap:3px;margin:8px 0 2px}.trybar i{width:16px;height:16px;border-radius:4px;background:var(--line)}
+.trybar i.r{background:var(--brand)}.trybar i.p{background:#E0A526}.trybar i.o{background:transparent;border:1.5px dashed var(--muted)}
+.trymap{padding:6px 0;border-top:1px solid var(--line);gap:8px}.trymap select{width:auto;max-width:55%;margin:0}
+.improw{margin:0 0 10px}.improw.off{opacity:.55}.improw.chk{border-color:#E0A526}
+.improw label{display:block;font-size:.8rem;font-weight:700;color:var(--muted);margin:6px 0 0}.improw label input,.improw label select{margin-top:2px}
+.impgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+@media (max-width:480px){.impgrid{grid-template-columns:1fr 1fr}.impgrid label:last-child{grid-column:1/-1}}
 .tbtray{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0;color:var(--ink);min-width:0}
 .tbtray select{width:auto;max-width:60%;margin:0}
 .tbnchips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0;max-height:160px;overflow-y:auto;-webkit-overflow-scrolling:touch}
@@ -1488,7 +1508,7 @@ async function loadForUser(user){
   BOOT.state='loading';render();
   try{
     const isCoach=chk(await sb.rpc('claim_coach'));
-    const teams=await all(()=>sb.from('teams').select('id,name,code'));
+    const teams=await all(()=>sb.from('teams').select('*'));
     S.teams=teams.sort((a,b)=>teamAge(a)-teamAge(b)||a.name.localeCompare(b.name));
     S.drills=(await all(()=>sb.from('drills').select('*').order('name'))).map(mapDrill);
     if(isCoach){
@@ -1522,6 +1542,11 @@ async function loadCoachData(){
     all(()=>sb.from('stat_games').select('*').gte('day',addDays(today(),-366))).catch(()=>null),
     all(()=>sb.from('player_stats').select('*')).catch(()=>null)
   ]);
+  S.venues={};try{const {data,error}=await sb.from('venues').select('name,address');if(!error)S.venueNames={};(data||[]).forEach(v=>{S.venues[vkey(v.name)]=v.address;S.venueNames[vkey(v.name)]=v.name})}catch(e){}
+  // Assessments need step 16.
+  S.notesReady=false;S.notes=[];try{const {data,error}=await sb.from('player_notes').select('*').order('created_at');if(!error){S.notesReady=true;S.notes=data||[]}}catch(e){}
+  // Tryouts need step 15.
+  S.tryReady=false;S.tryouts=[];try{const {data,error}=await sb.from('tryouts').select('*').order('created_at');if(!error){S.tryReady=true;S.tryouts=(data||[]).map(mapTry)}}catch(e){}
   // Game stats need step 11 of the database setup.
   S.statsReady=!!(sgs&&pss);setStats(sgs||[],pss||[]);
   await loadFavs();
@@ -1681,9 +1706,9 @@ function rosterCard(t){const ed=canEdit(t),rs=rosterOf(t),days=attDays(t).slice(
     <p class="small muted" style="margin:4px 0 8px">${esc(fmtDay(day))}${pr?`. Practice: ${esc(pr.title||'planned')}`:''}</p>
     ${attSheet(t,day,'squad')}</div>
   <div class="card"><div class="row between"><h3 style="margin:0">Roster (${rs.length})</h3>${days.length?`<span class="small muted">Last ${days.length} session${days.length===1?'':'s'}</span>`:''}</div>
-    ${rs.map(r=>{const {n,c}=attRate(r,days);return `<div class="squad"><span>${r.number?`<span class="jn">${esc(r.number)}</span>`:''}<strong>${esc(r.name)}</strong>${r.guest?' <span class="gtag">Guest</span>':''}${S.players.some(p=>p.roster===r.id)?' <span class="inpr">Parent linked</span>':''}<br><span class="small muted">${n?`Came to ${c} of ${n}`:'No attendance yet'}</span></span>
+    ${rs.map(r=>{const {n,c}=attRate(r,days);return `<div class="squad"><span>${r.number?`<span class="jn">${esc(r.number)}</span>`:''}<strong>${esc(r.name)}</strong>${r.guest?' <span class="gtag">Guest</span>':''}${S.players.some(p=>p.roster===r.id)?' <span class="inpr">Parent linked</span>':''} ${noteFlag('r',r.id)}<br><span class="small muted">${n?`Came to ${c} of ${n}`:'No attendance yet'}</span> ${noteBtn('r',r.id)}</span>
       <span class="attpts"><strong>${attPoints(r.id).pts}</strong> pts<br><span class="small ${n&&c/n<.6?'late':'muted'}">${n?Math.round(c/n*100)+'%':''}</span></span>
-      ${ed?`<button class="link" data-act="roster-remove" data-id="${r.id}">Remove</button>`:'<span></span>'}</div>`}).join('')||'<p class="muted small">No players on this roster yet.</p>'}
+      ${ed?`<button class="link" data-act="roster-remove" data-id="${r.id}">Remove</button>`:'<span></span>'}</div>${notePanel('r',r.id)}`}).join('')||'<p class="muted small">No players on this roster yet.</p>'}
     ${ed?`<h3 style="margin-top:14px">Add a player</h3><p class="small muted">First name and last initial only, like the rest of the site. A full name is shortened for you.</p>
     <div class="row"><input id="ros-name" placeholder="Albert M." style="flex:1 1 160px"><input id="ros-num" placeholder="No." inputmode="numeric" style="width:80px"><button class="btn small" data-act="roster-add" data-t="${t}">Add</button></div><p class="err" id="err-ros"></p>`:''}</div>`}
 async function attAct(a,ds){const keep=()=>{const y=window.scrollY;ui.attOpen=!!document.querySelector('.attcard[open]');render();window.scrollTo(0,y)};
@@ -1709,7 +1734,7 @@ function squadAllView(){const from=addDays(today(),-29),ap=S.session.approver;
   const rate=t=>{let n=0,c=0;rosterOf(t).forEach(r=>{for(const k in S.att){const i=k.indexOf('|');if(k.slice(0,i)!==r.id||k.slice(i+1)<from)continue;const st=S.att[k].status;if(st==='excused')continue;n++;if(st!=='absent')c++}});return n?Math.round(c/n*100)+'%':'No attendance yet'};
   const coachesOf=t=>[...new Set([...S.teamCoaches.filter(a=>a.team_id===t).map(a=>coachName(a.coach_id))])].filter(Boolean);
   return `<div class="pstats">${stat(S.teams.length,'teams')}${stat(kids.length,'players on rosters')}${stat(kids.filter(r=>r.guest).length,'guest spots')}${stat(S.players.length,'families on the app')}${stat(S.pending.length,'waiting for approval')}</div>
-  ${S.attReady?exportCard(null):''}
+  ${devFlagsCard()}${S.attReady?exportCard(null):''}
   <div class="plist">${favTeams().filter(t=>inScope(t.id)).map(t=>{const rs=rosterOf(t.id),g=rs.filter(r=>r.guest).length,app=S.players.filter(p=>p.team===t.id).length,cs=coachesOf(t.id);
     return `<button class="pcard sqcard" data-act="sq-team" data-v="${t.id}"><span class="row between"><strong>${teamLabel(t)}</strong><span class="pill">${rs.length} player${rs.length===1?'':'s'}</span></span>
     <span class="meta">${g?g+' guest'+(g===1?'':'s')+'. ':''}${app} on the app. Join code ${esc(t.code)}</span>
@@ -1782,8 +1807,118 @@ function saveBlob(blob,name){const url=URL.createObjectURL(blob),a=document.crea
 function rosterMatch(p,t){const claimed=new Set(S.players.filter(x=>x.id!==p.id&&x.roster).map(x=>x.roster));
   const picked=p.roster&&S.roster.find(r=>r.id===p.roster&&r.team===t);if(picked)return picked;
   return S.roster.find(r=>r.team===t&&r.name.toLowerCase()===String(p.name).toLowerCase()&&!claimed.has(r.id))||null}
+/* ----- Coach assessments: several coaches can weigh in on a tryout player or a roster kid ----- */
+const NOTE_TAGS=[['up','⬆ Move up'],['stay','✔ Right level'],['down','⬇ Move down']];
+const notesFor=(k,id)=>(S.notes||[]).filter(n=>k==='t'?n.tryout_id===id:n.roster_id===id);
+function noteFlag(k,id){const ns=notesFor(k,id);if(!ns.length)return '';const c={up:0,stay:0,down:0};ns.forEach(n=>{if(n.tag)c[n.tag]++});
+  const top=c.up>c.down&&c.up>=c.stay?'up':c.down>c.up&&c.down>=c.stay?'down':'';
+  return `${top?`<span class="nflag ${top}">${top==='up'?'⬆ Move up':'⬇ Move down'}${c[top]>1?' ('+c[top]+')':''}</span>`:''}`}
+function noteBtn(k,id){if(!S.notesReady)return '';const n=notesFor(k,id).length,open=ui.noteOpen===k+':'+id;
+  return `<button class="link notebtn" data-act="note-open" data-v="${k}:${id}" aria-expanded="${open}">${open?'Hide notes':n?`Notes (${n})`:'Add note'}</button>`}
+function notePanel(k,id){if(!S.notesReady||ui.noteOpen!==k+':'+id)return '';const ns=notesFor(k,id),d=ui.noteDraft||{};
+  const c={up:0,stay:0,down:0};ns.forEach(n=>{if(n.tag)c[n.tag]++});
+  return `<div class="notepanel">${ns.length?`<p class="small muted" style="margin:0 0 6px">${NOTE_TAGS.filter(([t])=>c[t]).map(([t,l])=>`${c[t]} ${l.replace(/^\S+ /,'').toLowerCase()}`).join(', ')||'Comments only'}</p>
+    ${ns.map(n=>`<div class="noteitem"><div class="row between"><span><strong>${esc(coachName(n.coach_id)||'Coach')}</strong> ${n.created_at?`<span class="small muted">${esc(fmtDay(String(n.created_at).slice(0,10)))}</span>`:''}</span>
+      <span>${n.tag?`<span class="nflag ${n.tag}">${NOTE_TAGS.find(x=>x[0]===n.tag)[1]}</span>`:''}${n.coach_id===S.session.uid||S.session.approver?`<button class="link danger" data-act="note-del" data-id="${n.id}">Delete</button>`:''}</span></div>
+      ${n.fit_team?`<div class="small">Best fit: <strong>${esc(team(n.fit_team).name)}</strong></div>`:''}${n.comment?`<div class="small">${esc(n.comment)}</div>`:''}</div>`).join('')}`:'<p class="small muted" style="margin:0 0 6px">No notes yet. Be the first to weigh in.</p>'}
+    <div class="noteadd"><div class="chips" role="group" aria-label="Assessment">${NOTE_TAGS.map(([t,l])=>`<button class="chip" data-act="note-tag" data-v="${t}" aria-pressed="${d.tag===t}">${l}</button>`).join('')}</div>
+      <select id="nt-team" aria-label="Best fit team"><option value="">Best fit team (optional)</option>${favTeams().map(t=>`<option value="${t.id}" ${d.team===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}</select>
+      <textarea id="nt-comment" rows="2" placeholder="e.g. A team potential, strong first touch">${esc(d.comment||'')}</textarea>
+      <div class="row"><button class="btn small" data-act="note-save" data-v="${k}:${id}">Save note</button><span class="small muted">Coaches only. Families never see notes.</span></div></div></div>`}
+function devFlagsCard(){if(!S.notesReady)return '';const rows=[];
+  (S.roster||[]).filter(r=>r.active).forEach(r=>{const f=noteFlag('r',r.id);if(f)rows.push({f,name:r.name,where:team(r.team).name,k:'r',id:r.id,team:r.team})});
+  (S.tryouts||[]).filter(p=>p.status==='pool'||p.status==='placed').forEach(p=>{const f=noteFlag('t',p.id);if(f)rows.push({f,name:p.name,where:p.status==='placed'?team(p.team).name+' (tryout)':p.age+' tryout pool',k:'t',id:p.id})});
+  if(!rows.length)return '';
+  return `<div class="card"><h3 style="margin-top:0">Development flags</h3><p class="small muted" style="margin:0 0 6px">Players coaches think should move up for a challenge or down for more playing time.</p>
+    ${rows.map(r=>`<div class="row between attmine"><span>${esc(r.name)} <span class="small muted">${esc(r.where)}</span></span><span>${r.f}<button class="link" data-act="note-go" data-v="${r.k}:${r.id}" data-t="${r.team||''}">Notes</button></span></div>`).join('')}</div>`}
+/* ----- Tryouts: pool of tryout players, check-in, and placing them into open roster spots ----- */
+const mapTry=r=>({id:r.id,name:r.name,age:r.age_group,gender:r.gender||'',position:r.position||'',parent:r.parent_name||'',email:r.parent_email||'',phone:r.parent_phone||'',before:r.played_before||'',notes:r.notes||'',arrived:!!r.arrived,status:r.status||'pool',team:r.team_id||null,source:r.source||'coach'});
+const teamU=t=>{const m=String((team(t)||{}).name||t).match(/U\s*(\d+)/i);return m?'U'+m[1]:''};
+const teamG=t=>{const n=String((team(t)||{}).name||'');return /girl/i.test(n)?'Girls':/boy/i.test(n)?'Boys':''};
+// Age group from what the family typed: "U11", "11U", "under 11", or a birth year (soccer season ends the next summer).
+function tryAge(v){const s=String(v||'').trim();let m=s.match(/\bU\s*-?\s*(\d{1,2})\b/i)||s.match(/\b(\d{1,2})\s*U\b/i)||s.match(/under\s*(\d{1,2})/i);if(m)return 'U'+(+m[1]);
+  m=s.match(/\b(20[01]\d|202\d)\b/);if(m){const d=new Date(),end=d.getMonth()>=7?d.getFullYear()+1:d.getFullYear();const u=end-(+m[1]);if(u>=4&&u<=19)return 'U'+u}return ''}
+const tryGender=v=>/girl|female|\bf\b/i.test(v)?'Girls':/boy|male|\bm\b/i.test(v)?'Boys':'';
+function tryAges(){const set=new Set(S.teams.map(t=>teamU(t.id)).filter(Boolean));(S.tryouts||[]).forEach(p=>p.age&&set.add(p.age));return [...set].sort((a,b)=>+a.slice(1)-+b.slice(1))}
+function teamSpots(t){const size=(team(t)||{}).roster_size||0,ros=rosterOf(t).length,placed=(S.tryouts||[]).filter(p=>p.team===t&&p.status==='placed').length;return {size,ros,placed,open:size?Math.max(0,size-ros-placed):null}}
+function tryoutsView(){
+  if(!S.tryReady)return '<div class="card"><p>Tryouts need one more database step. In Supabase, run lobos-schema-15-tryouts.sql once, then refresh.</p></div>';
+  if(ui.tryForm)return tryFormView();if(ui.tryImp)return tryImportView();
+  const ages=tryAges();if(!ui.tryAge||!ages.includes(ui.tryAge))ui.tryAge=ages[0]||'U11';const A=ui.tryAge;
+  const pool=S.tryouts.filter(p=>p.age===A&&p.status==='pool').sort((a,b)=>(b.arrived-a.arrived)||a.name.localeCompare(b.name));
+  const out=S.tryouts.filter(p=>p.age===A&&p.status==='not_selected');
+  const teams=favTeams().filter(t=>teamU(t.id)===A);
+  const cnt=a=>S.tryouts.filter(p=>p.age===a&&p.status==='pool').length;
+  const g=ui.tryG||'';const poolG=g?pool.filter(p=>!p.gender||p.gender===g):pool;
+  const card=p=>`<div class="trycard ${p.arrived?'here':''}"><div class="row between"><span><strong>${esc(p.name)}</strong>${p.gender?` <span class="small muted">${esc(p.gender)}</span>`:''}${p.position?` <span class="pill">${esc(p.position)}</span>`:''} ${noteFlag('t',p.id)}</span>
+      <button class="tryarr" data-act="try-arrive" data-id="${p.id}" aria-pressed="${p.arrived}">${p.arrived?'✅ Here':'Mark here'}</button></div>
+    ${p.before||p.notes?`<div class="small muted">${[p.before?'Played before: '+esc(p.before):'',esc(p.notes)].filter(Boolean).join('. ')}</div>`:''}
+    ${p.parent||p.email||p.phone?`<div class="small muted">${[esc(p.parent),p.email?`<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>`:'',p.phone?`<a href="tel:${esc(p.phone)}">${esc(p.phone)}</a>`:''].filter(Boolean).join(' · ')}</div>`:''}
+    <div class="row wrapbtns trybtns">${teams.filter(t=>!p.gender||!teamG(t.id)||teamG(t.id)===p.gender).map(t=>{const sp=teamSpots(t.id);return `<button class="btn small" data-act="try-place" data-id="${p.id}" data-v="${t.id}" ${sp.open===0?'title="No open spots"':''}>Place on ${esc(t.name)}${sp.open!=null?` (${sp.open} open)`:''}</button>`}).join('')}
+      <select data-trymove="${p.id}" aria-label="Other team"><option value="">Other team…</option>${favTeams().filter(t=>teamU(t.id)!==A||(p.gender&&teamG(t.id)&&teamG(t.id)!==p.gender)).map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select>
+      <button class="link" data-act="try-edit" data-id="${p.id}">Edit</button>${noteBtn('t',p.id)}<button class="link danger" data-act="try-status" data-id="${p.id}" data-v="not_selected">Not selected</button></div>${notePanel('t',p.id)}</div>`;
+  const tcard=t=>{const sp=teamSpots(t.id),ros=rosterOf(t.id),pl=S.tryouts.filter(p=>p.team===t.id&&p.status==='placed'),ed=canEdit(t.id);
+    return `<div class="card trytem"><div class="row between"><h3 style="margin:0">${teamLabel(t)}</h3>
+      <label class="small trysize">Spots <input type="number" min="1" max="40" inputmode="numeric" data-trysize="${t.id}" value="${sp.size||''}" placeholder="?" ${ed?'':'disabled'}></label></div>
+      <div class="trybar">${sp.size?Array.from({length:Math.max(sp.size,sp.ros+sp.placed)},(_,i)=>`<i class="${i<sp.ros?'r':i<sp.ros+sp.placed?'p':'o'}"></i>`).join(''):''}</div>
+      <p class="small" style="margin:4px 0">${sp.ros} returning${pl.length?`, ${pl.length} placed from tryouts`:''}${sp.size?`, <strong>${sp.open} open spot${sp.open===1?'':'s'}</strong>`:'. Set the number of spots to see open slots.'}</p>
+      ${pl.length?`<div class="trypl">${pl.map(p=>`<div class="row between attmine"><span>⭐ ${esc(p.name)}${p.position?' <span class="small muted">'+esc(p.position)+'</span>':''} ${noteFlag('t',p.id)}</span><span>${noteBtn('t',p.id)}<button class="link" data-act="try-status" data-id="${p.id}" data-v="pool">Back to pool</button></span></div>${notePanel('t',p.id)}`).join('')}</div>
+        ${ed?`<button class="btn small" data-act="try-commit" data-v="${t.id}">Add ${pl.length} placed player${pl.length===1?'':'s'} to the roster</button>`:''}`:''}
+      <details class="small"><summary>Returning players (${ros.length})</summary><p style="margin:4px 0">${ros.map(r=>esc(r.name)+(noteFlag('r',r.id)?' '+noteFlag('r',r.id):'')).join(', ')||'None on the roster yet.'}</p></details></div>`};
+  return `<div class="row between"><h3 style="margin:0">Tryouts</h3><div class="row wrapbtns"><button class="btn small" data-act="try-new">Add player</button><button class="btn small ghost" data-act="try-imp">Import from Google Form</button></div></div>
+  <p class="small muted">Place tryout players into open spots. Nothing is sent to families from here; you tell them yourselves.</p>${devFlagsCard()}
+  <div class="chips" role="group" aria-label="Age group">${ages.map(a=>`<button class="chip" data-act="try-age" data-v="${a}" aria-pressed="${a===A}">${a}${cnt(a)?` (${cnt(a)})`:''}</button>`).join('')}</div>
+  <div class="chips" role="group" aria-label="Boys or girls">${[['','Everyone'],['Boys','Boys'],['Girls','Girls']].map(([v,l])=>`<button class="chip" data-act="try-g" data-v="${v}" aria-pressed="${g===v}">${l}</button>`).join('')}</div>
+  <div class="split"><section><h3>${A} tryout pool (${poolG.length})</h3><p class="small muted" style="margin:0 0 8px">${pool.filter(p=>p.arrived).length} checked in</p>
+    ${poolG.length?poolG.map(card).join(''):`<div class="card"><p class="muted" style="margin:0">No ${A} players waiting. Add them or import the Google Form responses.</p></div>`}
+    ${out.length?`<details class="card"><summary>Not selected (${out.length})</summary>${out.map(p=>`<div class="row between attmine"><span>${esc(p.name)}</span><button class="link" data-act="try-status" data-id="${p.id}" data-v="pool">Back to pool</button></div>`).join('')}</details>`:''}</section>
+  <section><h3>${A} teams</h3>${teams.length?teams.map(tcard).join(''):`<div class="card"><p class="muted" style="margin:0">No ${A} teams on the site.</p></div>`}</section></div>`}
+function tryFormView(){const p=ui.tryForm,ages=tryAges();
+  return `<button class="backbtn" data-act="try-cancel">Tryouts</button><h2>${p.id?'Edit tryout player':'Add tryout player'}</h2><div class="card">
+  <label for="tf-name">Player name</label><input id="tf-name" value="${esc(p.name||'')}" placeholder="First name and last initial, like Mateo R." autocomplete="off">
+  <div class="row wrapbtns"><div style="flex:1;min-width:120px"><label for="tf-age">Trying out for</label><select id="tf-age">${ages.map(a=>`<option ${a===(p.age||ui.tryAge)?'selected':''}>${a}</option>`).join('')}</select></div>
+  <div style="flex:1;min-width:120px"><label for="tf-g">Boys or girls</label><select id="tf-g"><option value=""></option><option ${p.gender==='Boys'?'selected':''}>Boys</option><option ${p.gender==='Girls'?'selected':''}>Girls</option></select></div>
+  <div style="flex:1;min-width:120px"><label for="tf-pos">Position</label><input id="tf-pos" value="${esc(p.position||'')}" placeholder="Forward, GK..."></div></div>
+  <label for="tf-parent">Parent name</label><input id="tf-parent" value="${esc(p.parent||'')}">
+  <div class="row wrapbtns"><div style="flex:1;min-width:160px"><label for="tf-email">Parent email</label><input id="tf-email" type="email" value="${esc(p.email||'')}"></div><div style="flex:1;min-width:140px"><label for="tf-phone">Parent phone</label><input id="tf-phone" type="tel" value="${esc(p.phone||'')}"></div></div>
+  <label for="tf-before">Played for the Lobos before?</label><input id="tf-before" value="${esc(p.before||'')}" placeholder="e.g. Yes, U10 Boys B">
+  <label for="tf-notes">Coach notes</label><textarea id="tf-notes" rows="2">${esc(p.notes||'')}</textarea>
+  <p class="err" id="err"></p><div class="row"><button class="btn" data-act="try-save">${p.id?'Save':'Add to pool'}</button>${p.id?'<button class="link danger" data-act="try-del">Remove</button>':''}</div></div>`}
+const TRY_FIELDS=[['','Skip'],['name','Player full name'],['first','Player first name'],['last','Player last name'],['age','Age group or birth year'],['gender','Boys or girls'],['position','Position'],['parent','Parent name'],['email','Parent email'],['phone','Parent phone'],['before','Played for Lobos before'],['notes','Notes']];
+function tryGuess(h){h=h.toLowerCase();if(/timestamp|date submitted/.test(h))return '';if(/parent|guardian/.test(h)){if(/mail/.test(h))return 'email';if(/phone|cell|number/.test(h))return 'phone';if(/name/.test(h))return 'parent'}
+  if(/e-?mail/.test(h))return 'email';if(/phone|cell/.test(h))return 'phone';if(/first/.test(h))return 'first';if(/last/.test(h))return 'last';if(/(player|child|athlete|kid).*name|^name$|full name/.test(h))return 'name';
+  if(/age group|age|birth|year|division|team.*(try|for)/.test(h))return 'age';if(/gender|boy|girl|sex/.test(h))return 'gender';if(/position/.test(h))return 'position';if(/before|previous|returning|lobos/.test(h))return 'before';if(/note|comment|anything/.test(h))return 'notes';return ''}
+function tryParseTable(t){t=String(t||'').replace(/\r/g,'');if(!t.trim())return [];const tab=t.includes('\t');
+  if(tab)return t.split('\n').filter(l=>l.trim()).map(l=>l.split('\t').map(c=>c.trim()));
+  const rows=[];let row=[],cell='',q=false;for(let i=0;i<t.length;i++){const ch=t[i];if(q){if(ch==='"'&&t[i+1]==='"'){cell+='"';i++}else if(ch==='"')q=false;else cell+=ch}
+    else if(ch==='"')q=true;else if(ch===','){row.push(cell.trim());cell=''}else if(ch==='\n'){row.push(cell.trim());if(row.some(Boolean))rows.push(row);row=[];cell=''}else cell+=ch}
+  row.push(cell.trim());if(row.some(Boolean))rows.push(row);return rows}
+function tryImportView(){const d=ui.tryImp;
+  if(!d.rows)return `<button class="backbtn" data-act="try-cancel">Tryouts</button><h2>Import from Google Form</h2><div class="card">
+    <p class="small" style="margin-top:0">Open the form's responses in Google Sheets, select everything including the top row, copy, and paste here. A downloaded .csv file works too.</p>
+    <textarea id="ti-text" rows="8" placeholder="Paste the responses here">${esc(d.text||'')}</textarea>
+    <div class="row wrapbtns" style="margin-top:8px"><button class="btn" data-act="try-imp-read">Next</button><label class="btn ghost" style="cursor:pointer">Choose .csv file<input type="file" id="ti-file" accept=".csv,text/csv,.tsv,text/plain" hidden></label></div>
+    <p class="err" id="err">${esc(d.error||'')}</p></div>`;
+  const H=d.rows[0],body=d.rows.slice(1),prev=tryImportBuild(d),ok=prev.filter(p=>p.ok&&!p.dup).length;
+  return `<button class="backbtn" data-act="try-cancel">Tryouts</button><h2>Import from Google Form</h2>
+  <div class="card"><h3 style="margin-top:0">Match the columns</h3><p class="small muted" style="margin:0 0 6px">Tell the site what each column is. Columns set to Skip aren't saved.</p>
+    ${H.map((h,i)=>`<div class="row between trymap"><span class="small"><strong>${esc(h||'Column '+(i+1))}</strong><br><span class="muted">${esc((body[0]||[])[i]||'')}</span></span><select data-trymap="${i}">${TRY_FIELDS.map(([v,l])=>`<option value="${v}" ${d.map[i]===v?'selected':''}>${l}</option>`).join('')}</select></div>`).join('')}</div>
+  <div class="card"><h3 style="margin-top:0">${body.length} response${body.length===1?'':'s'}</h3>
+    ${prev.map(p=>`<div class="row between attmine"><span>${esc(p.name||'(no name)')} <span class="small muted">${esc(p.age||'no age group')}${p.gender?' '+esc(p.gender):''}</span></span><span class="small">${p.dup?'Already in the pool':!p.ok?'<span class="late">Needs a name and age group</span>':'Ready'}</span></div>`).join('')}</div>
+  <div class="row wrapbtns"><button class="btn" data-act="try-imp-save" ${ok?'':'disabled'}>Add ${ok} player${ok===1?'':'s'} to the pool</button><button class="btn ghost" data-act="try-imp-back">Paste again</button></div>`}
+function tryImportBuild(d){const body=d.rows.slice(1),f=k=>d.map.indexOf(k);
+  return body.map(r=>{const g=k=>{const i=f(k);return i>=0?(r[i]||'').trim():''};
+    const full=g('name')||[g('first'),g('last')].filter(Boolean).join(' ');const name=shortName(full);const age=tryAge(g('age'));
+    const o={name,age,gender:tryGender(g('gender')),position:g('position'),parent:g('parent'),email:g('email'),phone:g('phone'),before:g('before'),notes:g('notes')};
+    o.ok=!!(name&&age);o.dup=(S.tryouts||[]).some(p=>p.name.toLowerCase()===name.toLowerCase()&&p.age===age);return o})}
+async function tryUpdate(id,patch){const p=S.tryouts.find(x=>x.id===id);if(!p)return;
+  const db={};if('arrived' in patch)db.arrived=patch.arrived;if('status' in patch)db.status=patch.status;if('team' in patch)db.team_id=patch.team;
+  chk(await sb.from('tryouts').update({...db,updated_at:new Date().toISOString()}).eq('id',id));Object.assign(p,patch)}
+function tryKeep(){const y=window.scrollY;render();window.scrollTo(0,y)}
 function squadView(){
   if(ui.xView)return attSheetView();
+  const sw=`<div class="chips" role="group" aria-label="Squad section">${[['teams','Teams'],['try','Tryouts']].map(([v,l])=>`<button class="chip" data-act="sq-sec" data-v="${v}" aria-pressed="${(ui.sqSec||'teams')===v}">${l}${v==='try'&&(S.tryouts||[]).some(p=>p.status==='pool')?` (${S.tryouts.filter(p=>p.status==='pool').length})`:''}</button>`).join('')}</div>`;
+  if(ui.sqSec==='try')return `<h2>Squad</h2>${(ui.tryForm||ui.tryImp)?'':sw}${tryoutsView()}`;
   if(!ui.team)ui.team=S.teams[0].id;if(ui.sqAll===undefined)ui.sqAll=true;
   const chips=`<div class="chips" role="group" aria-label="Team">${favEditChip()}<button class="chip" data-act="sq-all" aria-pressed="${!!ui.sqAll&&!ui.favOnly}">All teams</button>${favOnlyChip('sqAll')}${favTeams().map(x=>`<button class="chip" data-act="team" data-v="${x.id}" aria-pressed="${!ui.sqAll&&ui.team===x.id}">${teamLabel(x)}</button>`).join('')}</div>${favPanel()}`;const T=today();const t=team(ui.team);const ap=S.session.approver;
   const ps=S.players.filter(p=>p.team===ui.team);
@@ -1794,8 +1929,8 @@ function squadView(){
       ${ap?`<select id="ap-${p.id}" aria-label="Team for ${esc(p.name)}">${S.teams.map(x=>`<option value="${x.id}" ${x.id===p.req?'selected':''}>${esc(x.name)}</option>`).join('')}</select>
       <span class="row"><button class="btn small go" data-act="approve" data-id="${p.id}">Approve</button><button class="link" data-act="decline" data-id="${p.id}">Decline</button></span>`
       :`<span class="small muted">Jason approves new players</span>`}</div>`).join('')}</div>`:'';
-  if(ui.sqAll)return `<h2>Squad</h2>${pend}${chips}${squadAllView()}`;
-  return `<h2>Squad</h2>${pend}${chips}<div class="row tcline" style="justify-content:flex-end">${favStar(ui.team)}</div>
+  if(ui.sqAll)return `<h2>Squad</h2>${sw}${pend}${chips}${squadAllView()}`;
+  return `<h2>Squad</h2>${sw}${pend}${chips}<div class="row tcline" style="justify-content:flex-end">${favStar(ui.team)}</div>
   <div class="split"><section>${rosterCard(ui.team)}${S.attReady?exportCard(ui.team):''}<div class="card"><div class="row between"><strong>${doneToday} of ${ps.length} finished today</strong><span class="small muted">Team code ${esc(t.code)}</span></div>
   <div class="bar"><b style="width:${ps.length?Math.round(doneToday/ps.length*100):0}%"></b></div></div>
   <div class="card">${ps.length?ps.map(p=>`<div class="squad"><span><strong>${esc(p.name)}</strong><br><span class="small muted">${streak(p.id)} day streak, ${points(p.id,7)} pts this week</span></span>
@@ -2451,6 +2586,132 @@ function sheetStatsCard(l){if(!S.statsReady)return '';const g=sgFor(l.id),ed=can
   const rows=g?S.pstats.filter(x=>x.g===g.id).map(x=>({x,r:S.roster.find(y=>y.id===x.r)})).filter(o=>o.r).sort((a,b)=>statPtsOf(b.x)-statPtsOf(a.x)):[];
   return `<div class="card noprint"><div class="row between"><strong>Game stats</strong>${ed?`<button class="btn small ${g?'ghost':''}" data-act="st-sheet" data-id="${l.id}">${g?'Edit game stats':'Enter game stats'}</button>`:''}</div>
     ${rows.length?rows.map(o=>`<div class="row between attmine"><span>${esc(o.r.name)}: ${esc(statLine(o.x))}</span><strong>${statPtsOf(o.x)} pts</strong></div>`).join(''):'<p class="small muted" style="margin:4px 0 0">No stats entered for this game yet.</p>'}</div>`}
+/* ----- Schedule import: GotSport (and similar) schedules, pasted as text or read from screenshots ----- */
+const GS_MON={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,sept:9,oct:10,nov:11,dec:12};
+const GS_DATE=/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sept?|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})\b/i;
+const GS_TIME=/\b(\d{1,2}):(\d{2})\s*([AP])\.?\s*M\b/i;
+const GS_SCORE=/^\s*(\d{1,2})\s*[-–:]\s*(\d{1,2})\s*$/;
+const GS_PLACE=/\b(park|field|fields|complex|stadium|center|centre|school|sports|facility|academy fields|campus|ymca|sportsplex|turf)\b|\s-\s/i;
+const GS_DIV=/^(U\s?\d{1,2}\b|Division\b|South\/|North\/|Boys\b|Girls\b|\(?20\d\d)/i;
+const GS_NOISE=/^(CDT|CST|EDT|EST|MDT|MST|PDT|PST|CT|ET|Forfeit|Cancell?ed|Postponed|Rescheduled|TBD|Match\s*#?|Time|Home Team|Away Team|Results?|Location|Division)$/i;
+function gsDay(t){const m=String(t).match(GS_DATE);if(!m)return null;const mo=GS_MON[m[1].toLowerCase().slice(0,m[1].toLowerCase()==='sept'?4:3)]||GS_MON[m[1].toLowerCase().slice(0,3)];return `${m[3]}-${String(mo).padStart(2,'0')}-${String(+m[2]).padStart(2,'0')}`}
+function gsKick(t){const m=String(t).match(GS_TIME);if(!m)return '';let h=+m[1];if(h>12)h=10+(h%10)<=12?10+(h%10):(h%10||12);return `${h}:${m[2]} ${m[3].toUpperCase()}M`}
+const gsClean=s=>String(s||'').replace(/\s+/g,' ').replace(/^[^A-Za-z0-9(]+|[^A-Za-z0-9).]+$/g,'').trim();
+// Turn one game's pieces into a schedule row from our team's point of view.
+function gsRow(o,ourKey){const key=(ourKey||'lobos').toLowerCase();const home=gsClean(o.home),away=gsClean(o.away);
+  const hOurs=home.toLowerCase().includes(key),aOurs=away.toLowerCase().includes(key);
+  let isHome=hOurs&&!aOurs?true:aOurs&&!hOurs?false:null;
+  if(isHome===null&&!hOurs&&!aOurs){if(home&&!away)isHome=false;else if(away&&!home)isHome=true}const opp=isHome===false?home:away;
+  let result='';const sc=String(o.result||'').match(/(\d{1,2})\s*[-–:]\s*(\d{1,2})/);
+  if(sc&&isHome!==null){const us=isHome?+sc[1]:+sc[2],them=isHome?+sc[2]:+sc[1];result=`${us}-${them} ${us>them?'W':us<them?'L':'D'}`}
+  return {day:o.day,kickoff:o.kickoff||'',opponent:opp,home:isHome,location:gsClean(o.location),result,status:o.status||'',check:isHome===null||!opp||!o.day}}
+// Pasted text: works whether the copy kept table cells (tabs) or flattened them into lines.
+function gsParseText(text,ourKey){const toks=String(text||'').replace(/\r/g,'').split(/\t|\n/).map(s=>s.trim()).filter(Boolean);const recs=[];let cur=null;
+  for(let i=0;i<toks.length;i++){const t=toks[i];
+    const starts=(/^\d{3,6}$/.test(t)&&GS_DATE.test(toks[i+1]||''))||(!/^\d{3,6}$/.test(t)&&GS_DATE.test(t)&&!(cur&&!cur.day));
+    if(starts){cur={toks:[],day:null};recs.push(cur);if(/^\d{3,6}$/.test(t))continue}
+    if(cur)cur.toks.push(t)}
+  return recs.map(r=>{const o={day:null,kickoff:'',status:''},rest=[];
+    r.toks.forEach(t=>{let u=t;if(!o.day&&GS_DATE.test(u)){o.day=gsDay(u);u=u.replace(GS_DATE,'')}if(!o.kickoff&&GS_TIME.test(u)){o.kickoff=gsKick(u);u=u.replace(GS_TIME,'')}
+      u=u.replace(/\b(CDT|CST|EDT|EST|MDT|MST|PDT|PST)\b/g,'').trim();if(/^(Forfeit|Cancell?ed|Postponed)$/i.test(u)){o.status=u;return}if(!u||GS_NOISE.test(u))return;rest.push(u)});
+    let d=rest.findIndex(t=>GS_DIV.test(t)&&/(boys|girls|division|\(20|U\s?\d)/i.test(t));if(d<0)d=rest.length;const body=rest.slice(0,d);
+    const si=body.findIndex(t=>GS_SCORE.test(t));let home=[],after=[];
+    if(si>=0){home=body.slice(0,si);o.result=body[si];after=body.slice(si+1)}else after=body.slice();
+    let li=after.findIndex((t,j)=>GS_PLACE.test(t)&&!/lobos/i.test(t)&&(si>=0||j>0));
+    if(si<0){const ours=after.findIndex(t=>/lobos/i.test(t));
+      if(li<0)li=after.length;const teams=after.slice(0,li);
+      if(ours===0){home=[teams[0]];after=teams.slice(1).concat(after.slice(li))}else if(ours>0){home=teams.slice(0,ours);after=[teams[ours]].concat(after.slice(li))}else{home=teams.slice(0,1);after=teams.slice(1).concat(after.slice(li))}
+      li=after.findIndex((t,j)=>GS_PLACE.test(t)&&!/lobos/i.test(t)&&j>0);}
+    if(li<0)li=after.length;o.home=home.join(' ');o.away=after.slice(0,li).join(' ');o.location=after.slice(li).join(' ');
+    return gsRow(o,ourKey)}).filter(r=>r.day)}
+// Screenshot words (with positions): each GotSport game sits under its own header row
+// (Match #, Time, Home Team, Results, Away Team, Location, Division), so words are put into
+// columns by where they sit across the page.
+function gsParseWords(words,ourKey){const W=words.filter(w=>w.text&&w.text.trim()).map(w=>({t:w.text.trim(),x0:w.bbox.x0,x1:w.bbox.x1,y0:w.bbox.y0,y1:w.bbox.y1,cx:(w.bbox.x0+w.bbox.x1)/2,cy:(w.bbox.y0+w.bbox.y1)/2}));
+  const near=(a,b)=>Math.abs(a.cy-b.cy)<Math.max(a.y1-a.y0,b.y1-b.y0)*.7;
+  const heads=W.filter(w=>/^Location$/i.test(w.t)).map(loc=>{const row=W.filter(w=>near(w,loc));const f=re=>{const w=row.find(x=>re.test(x.t));return w?w.x0:null};
+    return {top:Math.min(...row.map(w=>w.y0)),y:Math.max(...row.map(w=>w.y1)),cols:{match:f(/^Match$/i),time:f(/^Time$/i),home:f(/^Home$/i),result:f(/^Results?$/i),away:f(/^Away$/i),loc:loc.x0,div:f(/^Division$/i)}}}).sort((a,b)=>a.y-b.y);
+  if(!heads.length)return [];
+  const med=k=>{const v=heads.map(h=>h.cols[k]).filter(v=>v!=null).sort((a,b)=>a-b);return v.length?v[Math.floor(v.length/2)]:null};
+  const M={};['match','time','home','result','away','loc','div'].forEach(k=>M[k]=med(k));
+  const out=[];heads.forEach((h,i)=>{
+    // Each game's table has its own column widths, so use this header's positions (or the usual ones if a word was missed).
+    const C={};Object.keys(M).forEach(k=>C[k]=h.cols[k]!=null?h.cols[k]:M[k]);
+    if(h.cols.result==null&&C.home!=null&&C.away!=null)C.result=C.away-(C.away-C.home)*.35;
+    const order=Object.entries(C).filter(([,v])=>v!=null).sort((a,b)=>a[1]-b[1]);
+    const colOf=w=>{let k=order[0][0];for(const [n,x] of order){if(w.x0>=x-12)k=n}return k};
+    const bottom=i+1<heads.length?heads[i+1].top-2:1e9;
+    const ws=W.filter(w=>w.y0>h.y+1&&w.y1<=bottom);if(!ws.length)return;
+    const lines=[];ws.slice().sort((a,b)=>a.cy-b.cy).forEach(w=>{const L=lines[lines.length-1];if(L&&Math.abs(w.cy-L.cy)<Math.max(8,(w.y1-w.y0)*.6))L.ws.push(w);else lines.push({cy:w.cy,ws:[w]})});
+    const cols={};lines.forEach(L=>L.ws.sort((a,b)=>a.x0-b.x0).forEach(w=>{const k=colOf(w);(cols[k]=cols[k]||[]).push(w.t)}));
+    const j=k=>(cols[k]||[]).filter(t=>!/^[^A-Za-z0-9]{1,3}$/.test(t)&&!/^[a-z]_\)$/.test(t)).join(' ');
+    const timeTxt=j('time')+' '+j('match');const day=gsDay(timeTxt);if(!day)return;
+    out.push(gsRow({day,kickoff:gsKick(timeTxt),status:/forfeit/i.test(timeTxt)?'Forfeit':'',home:j('home').replace(/^\W+/,''),away:j('away'),result:j('result'),location:j('loc')},ourKey))});
+  return out}
+
+
+// Field names match even if a dash or space is missing (screenshots sometimes drop them).
+const vkey=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+// Same park, different field number (Field 7 and Field 8): reuse that park's address.
+const vpark=s=>String(s||'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(Boolean).slice(0,3).join(' ');
+function venueAddr(loc){const V=S.venues||{},k=vkey(loc);if(V[k])return V[k];const p=vpark(loc);if(!p)return '';const names=S.venueNames||{};for(const n in names)if(vpark(names[n])===p&&V[n])return V[n];return ''}
+const impKey=t=>{const n=(team(t)||{}).name||'';return 'lobos'};
+function impWords(data){if(data.words&&data.words.length)return data.words;const out=[];
+  (data.blocks||[]).forEach(b=>(b.paragraphs||[]).forEach(p=>(p.lines||[]).forEach(l=>(l.words||[]).forEach(w=>out.push(w)))));return out}
+function impDup(t,g){return S.lineups.find(l=>l.team===t&&l.day===g.day&&(!g.opponent||!l.opponent||l.opponent.toLowerCase().slice(0,12)===g.opponent.toLowerCase().slice(0,12)||l.kickoff===g.kickoff))}
+function impSetRows(rows){const d=ui.imp,seen=new Set(d.rows.map(r=>r.day+'|'+r.opponent.toLowerCase()));
+  rows.forEach(r=>{const k=r.day+'|'+r.opponent.toLowerCase();if(seen.has(k))return;seen.add(k);r.on=!impDup(d.team,r);r.dup=!r.on;d.rows.push(r)});
+  d.rows.sort((a,b)=>(a.day+a.kickoff).localeCompare(b.day+b.kickoff));(d.rows).forEach(r=>{const k=vkey(r.location);if(k&&d.addr[k]==null)d.addr[k]=venueAddr(r.location)})}
+function importView(){const d=ui.imp,eds=favTeams().filter(t=>canEdit(t.id));
+  const top=`<button class="backbtn" data-act="imp-cancel">Schedule</button><h2>Paste schedule</h2>`;
+  if(d.step==='input')return `${top}<div class="card">
+    <label for="imp-team">Team</label><select id="imp-team">${eds.map(t=>`<option value="${t.id}" ${t.id===d.team?'selected':''}>${teamLabel(t)}</option>`).join('')}</select>
+    <label for="imp-text">Paste the schedule</label>
+    <textarea id="imp-text" rows="8" placeholder="On the GotSport schedule page, select all the games, copy, and paste here.">${esc(d.text||'')}</textarea>
+    <p class="small muted" style="margin:4px 0 10px">Copy the whole season at once. The site splits it into separate games, and you check them before anything is saved.</p>
+    <div class="row wrapbtns"><button class="btn" data-act="imp-read">Read schedule</button>
+    <label class="btn ghost" style="cursor:pointer">Use screenshots<input type="file" id="imp-shots" accept="image/*" multiple hidden></label></div>
+    ${d.busy?`<p class="small" style="margin-top:10px">${esc(d.busy)}</p><div class="bar"><b id="impbar" style="width:${d.pct||0}%"></b></div>`:''}
+    <p class="err" id="err">${esc(d.error||'')}</p></div>`;
+  const on=d.rows.filter(r=>r.on).length,locs=[];const seenL=new Set();d.rows.filter(r=>r.on&&r.location).forEach(r=>{const k=vkey(r.location);if(!seenL.has(k)){seenL.add(k);locs.push(r.location)}});
+  return `${top}<p class="muted small">${esc(team(d.team).name)}: ${d.rows.length} game${d.rows.length===1?'':'s'} found. Check each one, fix anything that looks off, then add them.</p>
+  <div class="implist">${d.rows.map((r,i)=>`<div class="card improw ${r.on?'':'off'} ${r.check?'chk':''}">
+    <div class="row between"><label class="check" style="margin:0"><input type="checkbox" data-imp="${i}|on" ${r.on?'checked':''}> <strong>${esc(fmtDay(r.day))}</strong></label>
+      <span>${r.dup?'<span class="pill">Already on the site</span>':''}${r.result?`<span class="pill ${/W$/.test(r.result)?'done':/L$/.test(r.result)?'late':''}">${esc(r.result)}${r.status?' ('+esc(r.status)+')':''}</span>`:''}${r.check?'<span class="pill late">Check this one</span>':''}</span></div>
+    <div class="impgrid"><label>Date<input type="date" data-imp="${i}|day" value="${esc(r.day)}"></label><label>Kickoff<input data-imp="${i}|kickoff" value="${esc(r.kickoff)}" placeholder="9:30 AM"></label>
+      <label>Home or away<select data-imp="${i}|home"><option value="1" ${r.home===true?'selected':''}>Home</option><option value="0" ${r.home===false?'selected':''}>Away</option><option value="" ${r.home==null?'selected':''}>Not sure</option></select></label></div>
+    <label>Opponent<input data-imp="${i}|opponent" value="${esc(r.opponent)}"></label>
+    <label>Field<input data-imp="${i}|location" value="${esc(r.location)}"></label></div>`).join('')}</div>
+  ${locs.length?`<div class="card"><h3 style="margin-top:0">Field addresses</h3><p class="small muted" style="margin:0 0 6px">For the Apple Maps, Google Maps and Waze buttons. The site remembers each field, so you only type it once.</p>
+    ${locs.map(l=>`<label>${esc(l)}<input data-impaddr="${esc(vkey(l))}" value="${esc((d.addr[vkey(l)]!=null?d.addr[vkey(l)]:(S.venues||{})[vkey(l)])||'')}" placeholder="Street address, city"></label>`).join('')}</div>`:''}
+  <p class="err" id="err"></p><div class="row wrapbtns"><button class="btn" data-act="imp-save" ${on?'':'disabled'}>Add ${on} game${on===1?'':'s'}</button><button class="btn ghost" data-act="imp-back">Paste more</button></div>`}
+function impSync(){const d=ui.imp;if(!d)return;const g=id=>document.getElementById(id);if(g('imp-team'))d.team=g('imp-team').value;if(g('imp-text'))d.text=g('imp-text').value;
+  document.querySelectorAll('[data-imp]').forEach(el=>{const [i,k]=el.dataset.imp.split('|'),r=d.rows[+i];if(!r)return;
+    if(k==='on')r.on=el.checked;else if(k==='home')r.home=el.value===''?null:el.value==='1';else r[k]=el.value.trim()});
+  document.querySelectorAll('[data-impaddr]').forEach(el=>{d.addr[el.dataset.impaddr]=el.value.trim()})}
+async function impShots(files){const d=ui.imp;d.error='';d.busy='Loading the text reader…';d.pct=0;render();
+  try{await loadTesseract();const found=[];
+    for(let i=0;i<files.length;i++){d.busy=`Reading screenshot ${i+1} of ${files.length}…`;d.pct=0;render();
+      const img=await shrinkImage(files[i],2600);
+      const r=await window.Tesseract.recognize(img,'eng',{logger:m=>{if(m.status==='recognizing text'){d.pct=Math.round(m.progress*100);const b=document.getElementById('impbar');if(b)b.style.width=d.pct+'%'}}});
+      let rows=gsParseWords(impWords(r.data||{}),impKey(d.team));if(!rows.length)rows=gsParseText(r.data&&r.data.text||'',impKey(d.team));found.push(...rows)}
+    d.busy='';if(!found.length){d.error='Couldn’t find any games in those screenshots. Make sure the dates, teams and fields are showing, or paste the text instead.';return render()}
+    d.rows=d.rows||[];impSetRows(found);d.step='review';render();window.scrollTo(0,0)}
+  catch(e){d.busy='';d.error=e.message||'Something went wrong reading the screenshots.';render()}}
+async function impSave(){impSync();const d=ui.imp,rows=d.rows.filter(r=>r.on);
+  for(const r of rows)if(!/^\d{4}-\d{2}-\d{2}$/.test(r.day))return err('One of the games is missing its date.');
+  if(busy)return;busy=true;let n=0;
+  try{const vrows=Object.entries(d.addr).filter(([k,v])=>v&&v!==(S.venues||{})[k]).map(([k,v])=>({name:(d.rows.find(r=>vkey(r.location)===k)||{}).location||k,address:v,updated_by:S.session.uid,updated_at:new Date().toISOString()}));
+    if(vrows.length){const {error}=await sb.from('venues').upsert(vrows,{onConflict:'name'});if(!error)vrows.forEach(v=>{S.venues[vkey(v.name)]=v.address;(S.venueNames=S.venueNames||{})[vkey(v.name)]=v.name})}
+    for(const r of rows){if(impDup(d.team,r))continue;const base=luNewDraft(d.team);
+      const notes=[r.home===true?'Home game':r.home===false?'Away game':'',r.result?`Final: ${r.result.replace(/ ([WLD])$/,' ($1)')}${r.status?', '+r.status:''}`:''].filter(Boolean).join('. ');
+      const row={team_id:d.team,day:r.day,kickoff:r.kickoff||null,opponent:r.opponent||null,location:r.location||null,address:d.addr[vkey(r.location)]||(S.venues||{})[vkey(r.location)]||null,format:base.format,formation:base.formation,
+        slots:base.slots.map(sl=>({pos:sl.pos,x:sl.x,y:sl.y,player_id:null,name:''})),subs:[],notes:notes||null,created_by:S.session.uid,updated_by:S.session.uid,updated_at:new Date().toISOString()};
+      let res=await sb.from('lineups').insert(row).select().single();
+      if(res.error&&/address/i.test(res.error.message||'')){delete row.address;res=await sb.from('lineups').insert(row).select().single()}
+      const saved=chk(res);S.lineups=[mapLineup(saved),...S.lineups];n++}
+    ui.imp=null;ui.gd='sched';ui.schAll=false;ui.team=d.team;render();window.scrollTo(0,0);toast(`Added ${n} game${n===1?'':'s'} to ${team(d.team).name}`)}
+  catch(e){toast(e.message||'Could not save the games');render()}finally{busy=false}}
 /* ----- Game schedule (coaches: every team; parents: their child's team). No lineups here. ----- */
 function gamesHTML(list,o){const T=today();const days=[];list.forEach(g=>{let d=days[days.length-1];if(!d||d.day!==g.day)days.push(d={day:g.day,gs:[]});d.gs.push(g)});
   return days.map(d=>`<div class="pday"><h4>${esc(fmtDay(d.day))}${d.day===T?' <span class="pill done">Today</span>':''}</h4>
@@ -2475,7 +2736,7 @@ function schedView(){const T=today(),from=addDays(T,-14);if(ui.schAll===undefine
   const chips=`<div class="chips" role="group" aria-label="Team">${favEditChip()}<button class="chip" data-act="sch-all" aria-pressed="${!!ui.schAll&&!ui.favOnly}">All teams</button>${favOnlyChip('schAll')}${favTeams().map(x=>`<button class="chip" data-act="sch-team" data-v="${x.id}" aria-pressed="${!ui.schAll&&ui.team===x.id}">${teamLabel(x)}</button>`).join('')}</div>${favPanel()}`;
   const mine=S.lineups.filter(l=>ui.schAll?inScope(l.team):l.team===ui.team),key=gameKey;
   const up=mine.filter(g=>g.day>=T).sort((a,b)=>key(a).localeCompare(key(b))),past=mine.filter(g=>g.day<T&&g.day>=from).sort((a,b)=>key(b).localeCompare(key(a)));
-  return `${chips}<p class="small muted">Every game from the game day sheets. Families see the same schedule for their own team, without lineups or notes.</p>
+  return `${S.teams.some(t=>canEdit(t.id))?'<div class="row" style="justify-content:flex-end;margin-bottom:6px"><button class="btn small" data-act="imp-open">Paste schedule</button></div>':''}${chips}<p class="small muted">Every game from the game day sheets. Families see the same schedule for their own team, without lineups or notes.</p>
   <h3>Coming up</h3>${up.length?gamesHTML(up,{showTeam:true,coach:true}):'<p class="muted small">No games scheduled yet. Create a game day sheet to add one.</p>'}
   <h3>Last two weeks</h3>${past.length?gamesHTML(past,{showTeam:true,coach:true}):'<p class="muted small">No recent games.</p>'}`}
 function gamesView(){const p=player(ui.child);if(!p)return pendingView(S.children.find(c=>c.id===ui.child));
@@ -2532,6 +2793,7 @@ function gamedayView(){
   const sub=ui.gd||'sched';
   const head=`<div class="noprint"><h2>Game day</h2><div class="chips" role="group" aria-label="Game day section">${[['sched','Schedule'],['lineups','Game day sheets'],['stats','Stats'],['board','Tactics board']].map(([v,l])=>`<button class="chip" data-act="gd-sub" data-v="${v}" aria-pressed="${sub===v}">${l}</button>`).join('')}</div></div>`;
   if(ui.st)return statsEditor();
+  if(ui.imp)return importView();
   if(sub==='sched')return head+schedView();
   if(sub==='stats')return head+statsView();
   if(sub==='board')return (ui.tb?'':head)+(ui.tb?tbView():boardsListView());
@@ -2540,6 +2802,13 @@ function gamedayView(){
 async function gamedayAct(a,ds){
   switch(a){
     case 'gd-sub':ui.gd=ds.v;ui.tb=null;ui.lu=null;ui.luView=null;render();return true;
+    case 'imp-open':{const eds=favTeams().filter(t=>canEdit(t.id));if(!eds.length)return true;ui.imp={step:'input',team:(!ui.schAll&&canEdit(ui.team))?ui.team:eds[0].id,text:'',rows:[],addr:{}};render();window.scrollTo(0,0);return true;}
+    case 'imp-cancel':ui.imp=null;render();return true;
+    case 'imp-back':impSync();ui.imp.step='input';ui.imp.text='';render();return true;
+    case 'imp-read':{impSync();const d=ui.imp;d.error='';const rows=gsParseText(d.text,impKey(d.team));
+      if(!rows.length){d.error='Couldn\u2019t find any games in that text. Make sure the dates are included when you copy, or try screenshots.';render();return true}
+      impSetRows(rows);d.step='review';render();window.scrollTo(0,0);return true;}
+    case 'imp-save':await impSave();return true;
     case 'sch-all':ui.schAll=true;ui.favOnly=false;render();return true;
     case 'st-all':ui.stAll=true;ui.favOnly=false;render();return true;
     case 'st-teamf':ui.stAll=false;ui.team=ds.v;render();return true;
@@ -2634,6 +2903,17 @@ async function gamedayAct(a,ds){
 }
 // Live updates inside the lineup editor without losing what's been typed.
 document.addEventListener('change',e=>{const el=e.target;
+  if(el.dataset&&el.dataset.trymove!==undefined&&el.value){const p=S.tryouts.find(x=>x.id===el.dataset.trymove);if(p){tryUpdate(p.id,{status:'placed',team:el.value}).then(()=>{toast(`${p.name} placed on ${team(el.value).name}`);tryKeep()}).catch(x=>toast(x.message))}return}
+  if(el.dataset&&el.dataset.trysize!==undefined){const t=el.dataset.trysize,v=Math.max(1,Math.min(40,parseInt(el.value,10)||0))||null;
+    sb.from('teams').update({roster_size:v}).eq('id',t).then(({error})=>{if(error){toast('Could not save. Run step 15 in Supabase.');return}const T=team(t);if(T)T.roster_size=v;tryKeep()});return}
+  if(ui.tryImp&&el.dataset&&el.dataset.trymap!==undefined){ui.tryImp.map[+el.dataset.trymap]=el.value;tryKeep();return}
+  if(ui.tryImp&&el.id==='ti-file'&&el.files&&el.files[0]){el.files[0].text().then(t=>{ui.tryImp.text=t;const rows=tryParseTable(t);if(rows.length<2){ui.tryImp.error='That file has no responses in it.';render();return}ui.tryImp.rows=rows;ui.tryImp.map=rows[0].map(tryGuess);render()});return}
+  if(ui.imp&&el.id==='imp-shots'&&el.files&&el.files.length){impSync();impShots([...el.files]);return}
+  if(ui.imp&&el.id==='imp-team'){impSync();if(ui.imp.rows)ui.imp.rows.forEach(r=>{r.dup=!!impDup(ui.imp.team,r);if(r.dup)r.on=false});return}
+  if(ui.imp&&el.dataset&&(el.dataset.imp!==undefined)){impSync();if(el.dataset.imp.endsWith('|on')){const y=window.scrollY;render();window.scrollTo(0,y)}return}
+  if(ui.imp&&el.dataset&&el.dataset.impaddr!==undefined){impSync();const d=ui.imp,v=el.value.trim();if(!v)return;
+    const locOf=k=>(d.rows.find(r=>vkey(r.location)===k)||{}).location||'',park=vpark(locOf(el.dataset.impaddr));let n=0;
+    document.querySelectorAll('[data-impaddr]').forEach(o=>{if(o!==el&&!o.value.trim()&&vpark(locOf(o.dataset.impaddr))===park){o.value=v;d.addr[o.dataset.impaddr]=v;n++}});return}
   if(ui.st&&el.dataset&&el.dataset.stat!==undefined){ui.st.dirty=true;stSync();return}
   if(ui.st&&el.id==='st-team'){stSync();ui.st.vals={};const y=window.scrollY;render();window.scrollTo(0,y);return}
   if(el.id==='ch-team'){chPickLoad(el.value);return}
@@ -2851,6 +3131,46 @@ async function practiceAct(a,ds){
       const p=mapPractice(saved);S.practices=S.practices.map(x=>x.id===p.id?p:x);const y=window.scrollY;render();window.scrollTo(0,y)}finally{busy=false}break;}
     case 'att-set':case 'att-allhere':case 'roster-add':case 'roster-remove':await attAct(a,ds);break;
     case 'sq-all':ui.sqAll=true;ui.favOnly=false;render();break;
+    case 'note-open':ui.noteOpen=ui.noteOpen===ds.v?null:ds.v;ui.noteDraft={};tryKeep();break;
+    case 'note-tag':{const d=ui.noteDraft=ui.noteDraft||{};d.comment=val('nt-comment');d.team=val('nt-team');d.tag=d.tag===ds.v?null:ds.v;tryKeep();break;}
+    case 'note-save':{const [k,id]=ds.v.split(':'),d=ui.noteDraft||{},comment=val('nt-comment').trim(),fit=val('nt-team')||null;
+      if(!d.tag&&!comment&&!fit){toast('Pick move up, right level or move down, or write a comment.');break}
+      const row={tag:d.tag||null,fit_team:fit,comment:comment||null,coach_id:S.session.uid};row[k==='t'?'tryout_id':'roster_id']=id;
+      const saved=chk(await sb.from('player_notes').insert(row).select().single());S.notes.push(saved);ui.noteDraft={};tryKeep();toast('Note saved');break;}
+    case 'note-del':{if(!confirm('Delete this note?'))break;chk(await sb.from('player_notes').delete().eq('id',ds.id));S.notes=S.notes.filter(n=>n.id!==ds.id);tryKeep();break;}
+    case 'note-go':{const [k,id]=ds.v.split(':');if(k==='r'){ui.sqSec='teams';ui.sqAll=false;ui.team=ds.t}else{const p=S.tryouts.find(x=>x.id===id);ui.sqSec='try';if(p)ui.tryAge=p.age}
+      ui.noteOpen=ds.v;ui.noteDraft={};render();setTimeout(()=>{const el=document.querySelector(`[data-act="note-open"][data-v="${ds.v}"]`);if(el)el.scrollIntoView({block:'center'})},50);break;}
+    case 'sq-sec':ui.sqSec=ds.v;ui.tryForm=null;ui.tryImp=null;render();break;
+    case 'try-age':ui.tryAge=ds.v;tryKeep();break;
+    case 'try-g':ui.tryG=ds.v;tryKeep();break;
+    case 'try-arrive':{const p=S.tryouts.find(x=>x.id===ds.id);if(p){await tryUpdate(p.id,{arrived:!p.arrived});tryKeep()}break;}
+    case 'try-place':{const p=S.tryouts.find(x=>x.id===ds.id);if(!p)break;await tryUpdate(p.id,{status:'placed',team:ds.v});
+      if(teamU(ds.v)!==p.age){/* moved to another age group's team */}tryKeep();toast(`${p.name} placed on ${team(ds.v).name}`);break;}
+    case 'try-status':{const p=S.tryouts.find(x=>x.id===ds.id);if(!p)break;await tryUpdate(p.id,{status:ds.v,team:ds.v==='placed'?p.team:null});tryKeep();break;}
+    case 'try-new':ui.tryForm={age:ui.tryAge,gender:ui.tryG||''};render();window.scrollTo(0,0);break;
+    case 'try-edit':ui.tryForm={...S.tryouts.find(x=>x.id===ds.id)};render();window.scrollTo(0,0);break;
+    case 'try-cancel':ui.tryForm=null;ui.tryImp=null;render();break;
+    case 'try-save':{const f=ui.tryForm,name=shortName(val('tf-name'));if(!name)return err('Add the player\u2019s name.');
+      const row={name,age_group:val('tf-age'),gender:val('tf-g')||null,position:val('tf-pos')||null,parent_name:val('tf-parent')||null,parent_email:val('tf-email')||null,parent_phone:val('tf-phone')||null,played_before:val('tf-before')||null,notes:val('tf-notes')||null,updated_at:new Date().toISOString()};
+      if(!f.id&&S.tryouts.some(p=>p.name.toLowerCase()===name.toLowerCase()&&p.age===row.age_group))return err(`${name} is already in the ${row.age_group} pool.`);
+      const saved=f.id?chk(await sb.from('tryouts').update(row).eq('id',f.id).select().single()):chk(await sb.from('tryouts').insert({...row,source:'coach',created_by:S.session.uid}).select().single());
+      const m=mapTry(saved);S.tryouts=[...S.tryouts.filter(x=>x.id!==m.id),m];ui.tryAge=m.age;ui.tryForm=null;render();toast(f.id?'Saved':`${name} added to the ${m.age} pool`);break;}
+    case 'try-del':{const f=ui.tryForm;if(!f.id||!confirm(`Remove ${f.name} from tryouts?`))break;chk(await sb.from('tryouts').delete().eq('id',f.id));S.tryouts=S.tryouts.filter(x=>x.id!==f.id);ui.tryForm=null;render();break;}
+    case 'try-commit':{const t=ds.v,pl=S.tryouts.filter(p=>p.team===t&&p.status==='placed');if(!pl.length||!canEdit(t))break;
+      if(!confirm(`Add ${pl.length} player${pl.length===1?'':'s'} to the ${team(t).name} roster? This does not contact any family.`))break;let n=0;
+      for(const p of pl){const dup=S.roster.find(r=>r.team===t&&r.name.toLowerCase()===p.name.toLowerCase());
+        if(dup&&!dup.active){chk(await sb.from('roster').update({active:true}).eq('id',dup.id));dup.active=true}
+        else if(!dup){const saved=chk(await sb.from('roster').insert({team_id:t,name:p.name}).select().single());S.roster.push({id:saved.id,team:t,name:p.name,number:'',active:true,guest:false})}
+        await tryUpdate(p.id,{status:'added'});n++}
+      tryKeep();toast(`${n} added to the ${team(t).name} roster`);break;}
+    case 'try-imp':ui.tryImp={text:'',rows:null,map:[]};render();window.scrollTo(0,0);break;
+    case 'try-imp-back':ui.tryImp.rows=null;render();break;
+    case 'try-imp-read':{const d=ui.tryImp;d.text=val('ti-text');const rows=tryParseTable(d.text);
+      if(rows.length<2){d.error='Paste the top row with the question titles plus at least one response.';render();break}
+      d.error='';d.rows=rows;d.map=rows[0].map(tryGuess);render();window.scrollTo(0,0);break;}
+    case 'try-imp-save':{const d=ui.tryImp,list=tryImportBuild(d).filter(p=>p.ok&&!p.dup);if(!list.length)break;
+      const seen=new Set(),rows=list.filter(p=>{const k=p.name.toLowerCase()+'|'+p.age;if(seen.has(k))return false;seen.add(k);return true}).map(p=>({name:p.name,age_group:p.age,gender:p.gender||null,position:p.position||null,parent_name:p.parent||null,parent_email:p.email||null,parent_phone:p.phone||null,played_before:p.before||null,notes:p.notes||null,source:'form',created_by:S.session.uid}));
+      const saved=chk(await sb.from('tryouts').insert(rows).select());S.tryouts=[...S.tryouts,...(saved||[]).map(mapTry)];ui.tryImp=null;ui.tryAge=rows[0].age_group;render();toast(`${rows.length} player${rows.length===1?'':'s'} added to the tryout pool`);break;}
     case 'sq-team':ui.sqAll=false;ui.team=ds.v;render();window.scrollTo(0,0);break;
     case 'x-quick':{const T=today(),m0=T.slice(0,8)+'01';const [y,m]=T.split('-').map(Number),pm=new Date(y,m-2,1),pe=new Date(y,m-1,0),f2=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       [ui.xFrom,ui.xTo]=ds.v==='month'?[m0,T]:ds.v==='last'?[f2(pm),f2(pe)]:ds.v==='3m'?[addDays(T,-90),T]:[addDays(T,-364),T];{const yy=window.scrollY;render();window.scrollTo(0,yy)}break;}
@@ -2996,9 +3316,9 @@ async function act(a,ds){
 // so the browser Back button and the iPad/iPhone swipe back step out one level instead of leaving the site.
 function navLayers(){const L=[];if(!S.session)return L;const v=ui.view;
   if(v==='plans'){if(ui.plan)L.push('plan');if(ui.scan)L.push('scan');if(ui.edit)L.push('edit');if(ui.edit&&ui.dg&&ui.dg.cur!==null&&ui.dg.cur!==undefined)L.push('dg')}
-  else if(v==='squad'){if(ui.xView)L.push('xv')}
+  else if(v==='squad'){if(ui.xView)L.push('xv');if(ui.tryForm||ui.tryImp)L.push('tryf')}
   else if(v==='practices'){if(ui.practice)L.push('practice');if(ui.pedit)L.push('pedit');if(ui.pedit&&ui.peek)L.push('peek')}
-  else if(v==='gameday'){if(ui.tb)L.push('tb');if(ui.luView)L.push('luView');if(ui.lu)L.push('lu');if(ui.st)L.push('st')}
+  else if(v==='gameday'){if(ui.tb)L.push('tb');if(ui.luView)L.push('luView');if(ui.lu)L.push('lu');if(ui.st)L.push('st');if(ui.imp)L.push('imp')}
   return L}
 let navDepth=0,navSkip=0;
 function navSync(){const d=navLayers().length;
@@ -3018,7 +3338,9 @@ async function navBack(){
     case 'practice':return act('practice-back',{});
     case 'lu':if(confirm(NAV_LEAVE))await act('lu-cancel',{});return;
     case 'st':return act('st-cancel',{});
+    case 'imp':return act('imp-cancel',{});
     case 'xv':return act('x-close',{});
+    case 'tryf':return act('try-cancel',{});
     case 'luView':return act('lu-back',{});
     case 'tb':return act('tb-close',{});
   }}
