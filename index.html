@@ -195,6 +195,23 @@ details.card summary{cursor:pointer}
 .attmine{padding:6px 0;border-top:1px solid var(--line);font-size:.9rem}
 .tbgroup{display:flex;align-items:center;gap:10px;justify-content:space-between;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px 10px;margin:6px 0;font-weight:700;font-size:.9rem}
 .tbfs .tbgroup{position:absolute;left:50%;transform:translateX(-50%);bottom:max(8px,env(safe-area-inset-bottom));z-index:2;color:var(--ink)}
+.retbig{font-size:1.6rem;font-weight:800}
+.retbar{height:10px;border-radius:999px;background:var(--line);overflow:hidden;margin:0 0 10px}.retbar i{display:block;height:100%;background:#1E7B34;border-radius:999px}
+.retgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.retsub{margin:12px 0 4px;font-size:.95rem}.retline{padding:6px 0;border-bottom:1px solid var(--line)}.retline.low strong{color:#8A5A00}
+.tlist{margin-top:8px}.tlhead{padding:4px 0 6px;border-bottom:2px solid var(--line)}
+.tlrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;border-bottom:1px solid var(--line)}
+.tlrow input[type=checkbox]{width:22px;height:22px;margin:0 0 0 2px;flex:0 0 auto}
+.tlname{flex:1;display:flex;justify-content:space-between;align-items:center;gap:8px;background:none;border:0;padding:10px 2px;font:inherit;color:inherit;text-align:left;cursor:pointer;min-height:44px}
+.tlname:disabled{cursor:default;opacity:1}.tlrow.open{background:var(--soft)}
+.tlopts{flex-basis:100%;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:0 4px 10px}
+.tlrow.out .tlname>span:first-child{color:var(--muted);text-decoration:line-through}
+.tlrow.empty{padding:10px 2px;color:var(--muted);font-style:italic;border-bottom:1px dashed var(--line);min-height:44px}
+.rtag{flex:0 0 auto;font-size:.75rem;font-weight:700;border-radius:999px;padding:3px 10px;white-space:nowrap}
+.rtag.ret{background:#E3F5E8;color:#1E7B34}.rtag.try{background:#FFF4D6;color:#8A5A00}.rtag.out{background:#ECEFF4;color:#5A6474}
+.tlsel{padding:8px 0;border-bottom:1px solid var(--line)}
+.retrow{padding:4px 0;border-top:1px solid var(--line);gap:8px}.retck{display:flex;align-items:center;gap:8px;font-size:.95rem;cursor:pointer;min-height:32px}.retck input{width:20px;height:20px;margin:0}
+.retbox summary{padding:6px 0;cursor:pointer}
 .notebtn{padding:2px 0;margin-left:2px}
 .notepanel{background:var(--soft);border-radius:10px;padding:10px 12px;margin:6px 0 10px}
 .noteitem{border-top:1px solid var(--line);padding:6px 0}.noteitem:first-of-type{border-top:0}
@@ -1734,7 +1751,7 @@ function squadAllView(){const from=addDays(today(),-29),ap=S.session.approver;
   const rate=t=>{let n=0,c=0;rosterOf(t).forEach(r=>{for(const k in S.att){const i=k.indexOf('|');if(k.slice(0,i)!==r.id||k.slice(i+1)<from)continue;const st=S.att[k].status;if(st==='excused')continue;n++;if(st!=='absent')c++}});return n?Math.round(c/n*100)+'%':'No attendance yet'};
   const coachesOf=t=>[...new Set([...S.teamCoaches.filter(a=>a.team_id===t).map(a=>coachName(a.coach_id))])].filter(Boolean);
   return `<div class="pstats">${stat(S.teams.length,'teams')}${stat(kids.length,'players on rosters')}${stat(kids.filter(r=>r.guest).length,'guest spots')}${stat(S.players.length,'families on the app')}${stat(S.pending.length,'waiting for approval')}</div>
-  ${devFlagsCard()}${S.attReady?exportCard(null):''}
+  ${retentionCard()}${devFlagsCard()}${S.attReady?exportCard(null):''}
   <div class="plist">${favTeams().filter(t=>inScope(t.id)).map(t=>{const rs=rosterOf(t.id),g=rs.filter(r=>r.guest).length,app=S.players.filter(p=>p.team===t.id).length,cs=coachesOf(t.id);
     return `<button class="pcard sqcard" data-act="sq-team" data-v="${t.id}"><span class="row between"><strong>${teamLabel(t)}</strong><span class="pill">${rs.length} player${rs.length===1?'':'s'}</span></span>
     <span class="meta">${g?g+' guest'+(g===1?'':'s')+'. ':''}${app} on the app. Join code ${esc(t.code)}</span>
@@ -1831,6 +1848,44 @@ function devFlagsCard(){if(!S.notesReady)return '';const rows=[];
   if(!rows.length)return '';
   return `<div class="card"><h3 style="margin-top:0">Development flags</h3><p class="small muted" style="margin:0 0 6px">Players coaches think should move up for a challenge or down for more playing time.</p>
     ${rows.map(r=>`<div class="row between attmine"><span>${esc(r.name)} <span class="small muted">${esc(r.where)}</span></span><span>${r.f}<button class="link" data-act="note-go" data-v="${r.k}:${r.id}" data-t="${r.team||''}">Notes</button></span></div>`).join('')}</div>`}
+/* Retention: returning players out of last season's roster (returning + not returning). New kids from tryouts and guests don't count. */
+function retCount(tid){const newKids=new Set((S.tryouts||[]).filter(p=>p.team===tid&&p.status==='added').map(p=>p.name.toLowerCase()));
+  const rs=(S.roster||[]).filter(r=>r.team===tid&&!r.guest&&!newKids.has(r.name.toLowerCase()));return {back:rs.filter(r=>r.active).length,out:rs.filter(r=>!r.active).length}}
+function retSum(ts){let back=0,out=0;ts.forEach(t=>{const c=retCount(t.id);back+=c.back;out+=c.out});const n=back+out;return {back,out,n,pct:n?Math.round(back/n*100):null}}
+const retPct=r=>r.pct===null?'<span class="muted">No data</span>':`<strong>${r.pct}%</strong>`;
+function retentionCard(){const ts=S.teams||[];const all=retSum(ts);if(!all.n)return '';
+  const line=(l,r,cls='')=>`<div class="row between retline ${cls}"><span>${l}</span><span>${retPct(r)} <span class="small muted">${r.n?`${r.back} of ${r.n}`:''}</span></span></div>`;
+  const bar=r=>r.pct===null?'':`<div class="retbar"><i style="width:${r.pct}%"></i></div>`;
+  const ages=[...new Set(ts.map(t=>teamU(t.id)).filter(Boolean))].sort((a,b)=>+a.slice(1)-+b.slice(1));
+  const open=!!ui.retStatsOpen;
+  return `<div class="card retcard"><div class="row between"><h3 style="margin:0">Retention</h3><span class="retbig">${all.pct}%</span></div>
+    <p class="small muted" style="margin:2px 0 8px">Club wide: ${all.back} of ${all.n} players returning. Players added from tryouts don't count.</p>${bar(all)}
+    <div class="retgrid">${['Boys','Girls'].map(g=>{const r=retSum(ts.filter(t=>teamG(t.id)===g));return `<div class="pstat"><strong>${r.pct===null?'–':r.pct+'%'}</strong><span>${g}${r.n?` (${r.back} of ${r.n})`:''}</span></div>`}).join('')}</div>
+    <button class="link" data-act="ret-stats">${open?'Hide details':'By age group and team'}</button>
+    ${open?`<h4 class="retsub">By age group</h4>${ages.map(a=>line(a,retSum(ts.filter(t=>teamU(t.id)===a)))).join('')}
+      <h4 class="retsub">By team</h4>${ts.map(t=>({t,r:retSum([t])})).filter(x=>x.r.n).sort((a,b)=>a.r.pct-b.r.pct).map(x=>line(esc(x.t.name),x.r,x.r.pct<60?'low':'')).join('')}`:''}</div>`}
+/* Team list on a tryout team card: every name with a clear status. Tap a name for its options. */
+function retList(t,ros,ed,pl,sp){const sel=(ui.retSel||{})[t.id]||[],selMode=ui.retSelMode===t.id,gone=(S.roster||[]).filter(r=>r.team===t.id&&!r.active).sort((a,b)=>a.name.localeCompare(b.name));
+  const tag=(k,l)=>`<span class="rtag ${k}">${l}</span>`;
+  const row=(key,name,status,extra,opts)=>{const open=ui.retRow===key&&ed&&!selMode;
+    const ck=selMode&&status==='ret'?`<input type="checkbox" data-retsel="${t.id}" value="${key.slice(2)}" ${sel.includes(key.slice(2))?'checked':''} aria-label="Select ${esc(name)}">`:'';
+    return `<div class="tlrow ${status}${open?' open':''}">${ck}<button class="tlname" ${ed&&!selMode?`data-act="ret-row" data-v="${key}"`:'disabled'} aria-expanded="${open}"><span>${esc(name)}${extra}</span>${status==='ret'?tag('ret','Returning'):status==='try'?tag('try','⭐ Trying out'):tag('out','Not returning')}</button>
+      ${open?`<div class="tlopts">${opts}</div>`:''}</div>`};
+  const rr=[...ros].sort((a,b)=>a.name.localeCompare(b.name)).map(r=>row('r:'+r.id,r.name,'ret',' '+noteFlag('r',r.id),
+      `<button class="btn small danger" data-act="ret-remove" data-id="${r.id}" data-t="${t.id}">Not returning</button>${noteBtn('r',r.id)}`)+(ui.retRow==='r:'+r.id?notePanel('r',r.id):''));
+  const pr=pl.map(p=>row('t:'+p.id,p.name,'try',(p.position?` <span class="small muted">${esc(p.position)}</span>`:'')+' '+noteFlag('t',p.id),
+      `<button class="btn small ghost" data-act="try-status" data-id="${p.id}" data-v="pool">Back to tryout pool</button>${noteBtn('t',p.id)}`)+(ui.retRow==='t:'+p.id?notePanel('t',p.id):''));
+  const open=sp.size?Math.max(0,sp.open):0;
+  const gr=gone.map(r=>row('g:'+r.id,r.name,'out','',`<button class="btn small" data-act="ret-back" data-id="${r.id}" data-t="${t.id}">Returning</button>`));
+  return `<div class="tlist"><div class="row between tlhead"><span><strong>Team list</strong>${(()=>{const r=retSum([t]);return r.n?` <span class="small muted">· ${r.pct}% retention</span>`:''})()}</span>${ed&&ros.length?`<button class="link" data-act="ret-selmode" data-t="${t.id}">${selMode?'Done':'Select several'}</button>`:''}</div>
+    ${selMode?`<div class="tlsel row wrapbtns"><button class="link" data-act="ret-all" data-t="${t.id}">${sel.length===ros.length?'Clear':'Select all'}</button>${sel.length?`<button class="btn small danger" data-act="ret-bulk" data-t="${t.id}">Mark ${sel.length} not returning</button>`:'<span class="small muted">Check everyone who won’t be back.</span>'}</div>`:''}
+    ${rr.join('')}${pr.join('')}
+    ${Array.from({length:Math.min(open,30)},()=>`<div class="tlrow empty"><span>Open spot</span></div>`).join('')}
+    ${!ros.length&&!pl.length&&!open?'<p class="small muted" style="margin:6px 0">No players yet. Add returning players below.</p>':''}
+    ${ed&&pl.length?`<button class="btn small" style="margin-top:8px" data-act="try-commit" data-v="${t.id}">Add ${pl.length} tryout player${pl.length===1?'':'s'} to the roster</button>`:''}
+    ${ed?`<div class="row" style="margin-top:10px"><input id="ret-name-${t.id}" placeholder="Add returning player, e.g. Albert M." style="flex:1 1 160px"><button class="btn small" data-act="ret-add" data-t="${t.id}">Add</button></div>`:''}
+    ${gr.length?`<div class="tlgone"><div class="small muted" style="margin:10px 0 4px">Not returning (${gr.length})</div>${gr.join('')}</div>`:''}</div>`}
+document.addEventListener('toggle',e=>{const d=e.target;if(d&&d.dataset&&d.dataset.ret){ui.retOpen=ui.retOpen||{};ui.retOpen[d.dataset.ret]=d.open}},true);
 /* ----- Tryouts: pool of tryout players, check-in, and placing them into open roster spots ----- */
 const mapTry=r=>({id:r.id,name:r.name,age:r.age_group,gender:r.gender||'',position:r.position||'',parent:r.parent_name||'',email:r.parent_email||'',phone:r.parent_phone||'',before:r.played_before||'',notes:r.notes||'',arrived:!!r.arrived,status:r.status||'pool',team:r.team_id||null,source:r.source||'coach'});
 const teamU=t=>{const m=String((team(t)||{}).name||t).match(/U\s*(\d+)/i);return m?'U'+m[1]:''};
@@ -1862,11 +1917,9 @@ function tryoutsView(){
       <label class="small trysize">Spots <input type="number" min="1" max="40" inputmode="numeric" data-trysize="${t.id}" value="${sp.size||''}" placeholder="?" ${ed?'':'disabled'}></label></div>
       <div class="trybar">${sp.size?Array.from({length:Math.max(sp.size,sp.ros+sp.placed)},(_,i)=>`<i class="${i<sp.ros?'r':i<sp.ros+sp.placed?'p':'o'}"></i>`).join(''):''}</div>
       <p class="small" style="margin:4px 0">${sp.ros} returning${pl.length?`, ${pl.length} placed from tryouts`:''}${sp.size?`, <strong>${sp.open} open spot${sp.open===1?'':'s'}</strong>`:'. Set the number of spots to see open slots.'}</p>
-      ${pl.length?`<div class="trypl">${pl.map(p=>`<div class="row between attmine"><span>⭐ ${esc(p.name)}${p.position?' <span class="small muted">'+esc(p.position)+'</span>':''} ${noteFlag('t',p.id)}</span><span>${noteBtn('t',p.id)}<button class="link" data-act="try-status" data-id="${p.id}" data-v="pool">Back to pool</button></span></div>${notePanel('t',p.id)}`).join('')}</div>
-        ${ed?`<button class="btn small" data-act="try-commit" data-v="${t.id}">Add ${pl.length} placed player${pl.length===1?'':'s'} to the roster</button>`:''}`:''}
-      <details class="small"><summary>Returning players (${ros.length})</summary><p style="margin:4px 0">${ros.map(r=>esc(r.name)+(noteFlag('r',r.id)?' '+noteFlag('r',r.id):'')).join(', ')||'None on the roster yet.'}</p></details></div>`};
+      ${retList(t,ros,ed,pl,sp)}</div>`};
   return `<div class="row between"><h3 style="margin:0">Tryouts</h3><div class="row wrapbtns"><button class="btn small" data-act="try-new">Add player</button><button class="btn small ghost" data-act="try-imp">Import from Google Form</button></div></div>
-  <p class="small muted">Place tryout players into open spots. Nothing is sent to families from here; you tell them yourselves.</p>${devFlagsCard()}
+  <p class="small muted">Place tryout players into open spots. Nothing is sent to families from here; you tell them yourselves.</p>${retentionCard()}${devFlagsCard()}
   <div class="chips" role="group" aria-label="Age group">${ages.map(a=>`<button class="chip" data-act="try-age" data-v="${a}" aria-pressed="${a===A}">${a}${cnt(a)?` (${cnt(a)})`:''}</button>`).join('')}</div>
   <div class="chips" role="group" aria-label="Boys or girls">${[['','Everyone'],['Boys','Boys'],['Girls','Girls']].map(([v,l])=>`<button class="chip" data-act="try-g" data-v="${v}" aria-pressed="${g===v}">${l}</button>`).join('')}</div>
   <div class="split"><section><h3>${A} tryout pool (${poolG.length})</h3><p class="small muted" style="margin:0 0 8px">${pool.filter(p=>p.arrived).length} checked in</p>
@@ -2906,6 +2959,7 @@ document.addEventListener('change',e=>{const el=e.target;
   if(el.dataset&&el.dataset.trymove!==undefined&&el.value){const p=S.tryouts.find(x=>x.id===el.dataset.trymove);if(p){tryUpdate(p.id,{status:'placed',team:el.value}).then(()=>{toast(`${p.name} placed on ${team(el.value).name}`);tryKeep()}).catch(x=>toast(x.message))}return}
   if(el.dataset&&el.dataset.trysize!==undefined){const t=el.dataset.trysize,v=Math.max(1,Math.min(40,parseInt(el.value,10)||0))||null;
     sb.from('teams').update({roster_size:v}).eq('id',t).then(({error})=>{if(error){toast('Could not save. Run step 15 in Supabase.');return}const T=team(t);if(T)T.roster_size=v;tryKeep()});return}
+  if(el.dataset&&el.dataset.retsel!==undefined){const t=el.dataset.retsel;ui.retSel=ui.retSel||{};const l=new Set(ui.retSel[t]||[]);el.checked?l.add(el.value):l.delete(el.value);ui.retSel[t]=[...l];tryKeep();return}
   if(ui.tryImp&&el.dataset&&el.dataset.trymap!==undefined){ui.tryImp.map[+el.dataset.trymap]=el.value;tryKeep();return}
   if(ui.tryImp&&el.id==='ti-file'&&el.files&&el.files[0]){el.files[0].text().then(t=>{ui.tryImp.text=t;const rows=tryParseTable(t);if(rows.length<2){ui.tryImp.error='That file has no responses in it.';render();return}ui.tryImp.rows=rows;ui.tryImp.map=rows[0].map(tryGuess);render()});return}
   if(ui.imp&&el.id==='imp-shots'&&el.files&&el.files.length){impSync();impShots([...el.files]);return}
@@ -3131,6 +3185,20 @@ async function practiceAct(a,ds){
       const p=mapPractice(saved);S.practices=S.practices.map(x=>x.id===p.id?p:x);const y=window.scrollY;render();window.scrollTo(0,y)}finally{busy=false}break;}
     case 'att-set':case 'att-allhere':case 'roster-add':case 'roster-remove':await attAct(a,ds);break;
     case 'sq-all':ui.sqAll=true;ui.favOnly=false;render();break;
+    case 'ret-stats':ui.retStatsOpen=!ui.retStatsOpen;tryKeep();break;
+    case 'ret-row':ui.retRow=ui.retRow===ds.v?null:ds.v;ui.noteOpen=null;tryKeep();break;
+    case 'ret-selmode':ui.retSelMode=ui.retSelMode===ds.t?null:ds.t;ui.retSel={};ui.retRow=null;tryKeep();break;
+    case 'ret-all':{ui.retSel=ui.retSel||{};const ids=rosterOf(ds.t).map(r=>r.id);ui.retSel[ds.t]=(ui.retSel[ds.t]||[]).length===ids.length?[]:ids;tryKeep();break;}
+    case 'ret-remove':case 'ret-bulk':{const ids=a==='ret-remove'?[ds.id]:((ui.retSel||{})[ds.t]||[]);const rs=S.roster.filter(r=>ids.includes(r.id)&&r.active);if(!rs.length)break;
+      if(!confirm(rs.length===1?`Mark ${rs[0].name} as not returning? They come off the roster, and their past attendance and points are kept.`:`Mark these ${rs.length} players as not returning?\n${rs.map(r=>r.name).join(', ')}\nTheir past attendance and points are kept.`))break;
+      chk(await sb.from('roster').update({active:false}).in('id',rs.map(r=>r.id)));rs.forEach(r=>r.active=false);ui.retRow=null;if(a==='ret-bulk')ui.retSelMode=null;
+      if(ui.retSel)ui.retSel[ds.t]=(ui.retSel[ds.t]||[]).filter(i=>!ids.includes(i));ui.retOpen=ui.retOpen||{};(ui.retOpen=ui.retOpen||{})[ds.t]=true;toast(rs.length===1?rs[0].name+' marked not returning':rs.length+' players marked not returning');tryKeep();break;}
+    case 'ret-back':{const r=S.roster.find(x=>x.id===ds.id);if(!r)break;chk(await sb.from('roster').update({active:true}).eq('id',r.id));r.active=true;(ui.retOpen=ui.retOpen||{})[ds.t]=true;toast(r.name+' is back on the roster');tryKeep();break;}
+    case 'ret-add':{const name=shortName(val('ret-name-'+ds.t));if(!name){toast('Type the player’s first name and last initial.');break}
+      ui.retOpen=ui.retOpen||{};(ui.retOpen=ui.retOpen||{})[ds.t]=true;const dup=S.roster.find(r=>r.team===ds.t&&r.name.toLowerCase()===name.toLowerCase());
+      if(dup&&dup.active){toast(name+' is already on this roster.');break}
+      if(dup){chk(await sb.from('roster').update({active:true}).eq('id',dup.id));dup.active=true;toast(name+' is back on the roster');tryKeep();break}
+      const saved=chk(await sb.from('roster').insert({team_id:ds.t,name}).select().single());S.roster.push({id:saved.id,team:ds.t,name,number:'',active:true});toast(name+' added');tryKeep();break;}
     case 'note-open':ui.noteOpen=ui.noteOpen===ds.v?null:ds.v;ui.noteDraft={};tryKeep();break;
     case 'note-tag':{const d=ui.noteDraft=ui.noteDraft||{};d.comment=val('nt-comment');d.team=val('nt-team');d.tag=d.tag===ds.v?null:ds.v;tryKeep();break;}
     case 'note-save':{const [k,id]=ds.v.split(':'),d=ui.noteDraft||{},comment=val('nt-comment').trim(),fit=val('nt-team')||null;
