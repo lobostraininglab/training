@@ -338,6 +338,9 @@ body.peek-open{overflow:hidden}
 .tbfs .tbcol{position:absolute;left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));bottom:max(8px,env(safe-area-inset-bottom));max-height:70%;overflow:auto;z-index:3;touch-action:pan-y;box-shadow:0 8px 30px rgba(0,0,0,.4)}
 .tbfs.land .tbcol{left:auto;width:min(420px,60%);top:max(8px,env(safe-area-inset-top));max-height:none}
 .tbfs{position:fixed}
+.lutap{cursor:pointer;outline:none}.lutap:focus-visible circle:first-child{stroke:#FFD23F}
+.lupick{background:var(--surface);border:2px solid #FFD23F;border-radius:14px;padding:12px 14px;margin:8px 0;color:var(--ink)}
+.lubank{display:flex;flex-wrap:wrap;gap:6px}.lubank .chip{min-height:40px}
 .luslot{display:grid;grid-template-columns:56px 1fr;gap:8px;align-items:center;margin:6px 0}
 .luslot select{margin:0}
 .lupos{font-weight:700;font-size:.85rem;color:var(--brand)}
@@ -2445,7 +2448,9 @@ function tbTrayHTML(){const T=ui.tb,rs=T.team&&S.roster?rosterOf(T.team):[],pick
   const sheets=T.team?S.lineups.filter(l=>l.team===T.team).sort((a,b)=>b.day.localeCompare(a.day)):[];
   return `<div class="tbtray" id="tb-tray"><div class="row between"><strong>Names</strong><select id="tb-nteam" aria-label="Team for names"><option value="">Pick a team</option>${favTeams().map(t=>`<option value="${t.id}" ${t.id===T.team?'selected':''}>${teamLabel(t)}</option>`).join('')}</select></div>
   <p class="small muted" style="margin:4px 0">${pick?`Picked ${esc(pick[3]||'player')}${pick[4]?' ('+esc(pick[4])+')':''}. Now tap a name for them.`:T.nameArm?`Now tap a player for <strong>${esc(T.nameArm)}</strong>.`:'Tap a name, then tap a player. Or tap a player, then a name.'}</p>
-  ${rs.length?`<div class="tbnchips">${rs.map(r=>`<button class="chip ${where[r.name]!=null?'used':''}" data-act="tb-name-chip" data-v="${esc(r.name)}" aria-pressed="${T.nameArm===r.name}">${esc(r.name)}${where[r.name]!=null?` <small>${esc(where[r.name])}</small>`:''}</button>`).join('')}</div>`:T.team?'<p class="small muted">No roster for this team yet. Add players in the Squad tab.</p>':''}
+  ${rs.length?(()=>{const chip=r=>`<button class="chip ${where[r.name]!=null?'used':''}" data-act="tb-name-chip" data-v="${esc(r.name)}" aria-pressed="${T.nameArm===r.name}">${esc(r.name)}${where[r.name]!=null?` <small>${esc(where[r.name])}</small>`:''}</button>`;
+    const free=rs.filter(r=>where[r.name]==null),on=rs.filter(r=>where[r.name]!=null);
+    return `<div class="tbnchips">${free.map(chip).join('')||'<span class="small muted">Everyone is on the board.</span>'}</div>${on.length?`<details class="small tbplaced"><summary>On the board (${on.length})</summary><div class="tbnchips">${on.map(chip).join('')}</div></details>`:''}`})():T.team?'<p class="small muted">No roster for this team yet. Add players in the Squad tab.</p>':''}
   <div class="row tbnrow"><input id="tb-nname" placeholder="Type a name" maxlength="16"><button class="btn small ghost" data-act="tb-name-type">Use</button>${pick&&pick[4]?'<button class="link danger" data-act="tb-name-set" data-v="">Remove</button>':''}</div>
   ${sheets.length?`<div class="row tbnrow"><select id="tb-nsheet" aria-label="Game day sheet">${sheets.map(l=>`<option value="${l.id}">${esc(fmtDay(l.day))}${l.opponent?' vs '+esc(l.opponent):''} (${esc(l.format)})</option>`).join('')}</select><button class="btn small ghost" data-act="tb-name-fill">Fill from sheet</button></div>`:''}
   ${Object.keys(where).length?'<button class="link" data-act="tb-name-clearall">Clear all names</button>':''}</div>`}
@@ -2527,9 +2532,21 @@ function luRoster(t){const rs=(S.roster||[]).filter(r=>r.team===t&&r.active).map
   S.players.filter(p=>p.team===t&&!have.has(String(p.name).toLowerCase())).forEach(p=>rs.push({id:p.id,name:p.name,number:''}));
   return rs.sort((a,b)=>a.name.localeCompare(b.name))}
 function luPlayerName(id,fallback){if(!id)return fallback||'';const p=player(id)||(S.roster||[]).find(r=>r.id===id);return p?p.name:(fallback?fallback:'')}
-function luLineupSVG(l){const id='luah'+(gdN++);
-  const dots=l.slots.map(s=>gdDot(s.x,s.y,s.pos==='GK'?DCOL.K:DCOL.A,s.pos,s.player_id?luPlayerName(s.player_id,s.name):'')).join('');
+function luLineupSVG(l,tap,pick){const id='luah'+(gdN++);
+  const dots=l.slots.map((s,i)=>{const dot=gdDot(s.x,s.y,s.pos==='GK'?DCOL.K:DCOL.A,s.pos,s.player_id?luPlayerName(s.player_id,s.name):'');
+    if(!tap)return dot;const nm=s.player_id?luPlayerName(s.player_id,s.name):'';
+    return `<g class="lutap${pick===i?' on':''}" data-act="${tap}" data-i="${i}" role="button" tabindex="0" aria-label="${esc(s.pos)}${nm?': '+esc(nm):', choose a player'}">${pick===i?`<circle cx="${s.x}" cy="${s.y}" r="5.4" fill="none" stroke="#FFD23F" stroke-width=".9"/>`:''}${!s.player_id?`<circle cx="${s.x}" cy="${s.y}" r="4.4" fill="none" stroke="#fff" stroke-width=".35" stroke-dasharray="1 .8" opacity=".8"/>`:''}${dot}<circle cx="${s.x}" cy="${s.y+1.5}" r="7" fill="transparent"/></g>`}).join('');
   return gdPitch(dots,id)}
+/* Player picker for one position: the name bank only shows players not already starting. */
+function luPickerHTML(slots,i,roster,subIds,act){const s=slots[i];if(!s)return '';const cur=s.player_id;
+  const used=new Set(slots.map((x,j)=>j!==i&&x.player_id).filter(Boolean));const bank=roster.filter(p=>!used.has(p.id)&&p.id!==cur);
+  const empty=slots.filter(x=>!x.player_id).length;
+  const lab=p=>`${p.number?'<span class="jn">'+esc(p.number)+'</span>':''}${esc(p.name)}${p.guest?' <span class="gtag">Guest</span>':''}${subIds.includes(p.id)?' <span class="small muted">sub</span>':''}`;
+  return `<div class="lupick" role="dialog" aria-label="Choose a player for ${esc(s.pos)}"><div class="row between"><strong>${esc(s.pos)}${cur?`: ${esc(luPlayerName(cur,s.name))}`:''}</strong><button class="link" data-act="${act}" data-v="close">Done</button></div>
+    <p class="small muted" style="margin:2px 0 8px">${bank.length?`Tap a name. ${empty>1||(!cur&&empty>0)?'You’ll move to the next open position.':''}`:'Everyone on the roster is already starting.'}</p>
+    <div class="lubank">${bank.map(p=>`<button class="chip" data-act="${act}" data-v="${p.id}">${lab(p)}</button>`).join('')}</div>
+    ${cur?`<div class="row" style="margin-top:8px"><button class="link danger" data-act="${act}" data-v="">Clear ${esc(s.pos)}</button></div>`:''}</div>`}
+function luNextOpen(slots,i){for(let k=1;k<=slots.length;k++){const j=(i+k)%slots.length;if(!slots[j].player_id)return j}return null}
 function luNewDraft(teamId){const format=gdFormatFor(teamId),formation=GD_SHAPES[format][0];
   return {team:teamId,day:today(),kickoff:'',opponent:'',location:'',address:'',format,formation,slots:gdShape(format,formation).map(s=>({...s,player_id:''})),subs:[],notes:'',board:''}}
 function luReshape(d){const old=d.slots;d.slots=gdShape(d.format,d.formation).map((s,i)=>({...s,player_id:(old.find(o=>o.pos===s.pos)||{}).player_id||''}));
@@ -2543,8 +2560,8 @@ function luSubsHTML(d){const used=new Set(d.slots.map(s=>s.player_id).filter(Boo
   return luRoster(d.team).filter(p=>!used.has(p.id)).map(p=>`<label class="check"><input type="checkbox" data-sub="${p.id}" ${d.subs.includes(p.id)?'checked':''}> ${esc((p.number?'#'+p.number+' ':'')+p.name)}</label>`).join('')||'<p class="small muted">Everyone on the roster is starting.</p>'}
 function luEditorView(){const d=ui.lu;const roster=luRoster(d.team);
   const lab=p=>(p.number?'#'+p.number+' ':'')+p.name+(p.guest?' (guest)':'');
-  const opts=sel=>`<option value="">Choose a player</option>`+roster.map(p=>`<option value="${p.id}" ${p.id===sel?'selected':''}>${esc(lab(p))}</option>`).join('');
   const used=new Set(d.slots.map(s=>s.player_id).filter(Boolean));
+  const opts=sel=>`<option value="">Choose a player</option>`+roster.filter(p=>p.id===sel||!used.has(p.id)).map(p=>`<option value="${p.id}" ${p.id===sel?'selected':''}>${esc(lab(p))}</option>`).join('');
   return `<button class="backbtn" data-act="lu-cancel">Back</button><h2>${d.id?'Edit game day sheet':'New game day sheet'}</h2>
   <div class="gdboard"><section>
    <div class="card"><label for="lu-team">Team</label><select id="lu-team">${S.teams.filter(t=>canEdit(t.id)).map(t=>`<option value="${t.id}" ${t.id===d.team?'selected':''}>${esc(t.name)}</option>`).join('')}</select>
@@ -2560,7 +2577,9 @@ function luEditorView(){const d=ui.lu;const roster=luRoster(d.team);
     ${d.slots.map((s,i)=>`<div class="luslot"><span class="lupos">${esc(s.pos)}</span><select id="lu-s${i}" data-change="lu-slot" aria-label="${esc(s.pos)}">${opts(s.player_id)}</select></div>`).join('')}</div>
    <div class="card"><h3 style="margin-top:0">Substitutes</h3><div id="lu-subs">${luSubsHTML(d)}</div></div>
   </section><section>
-   <div id="lu-pitch" class="lupitch">${luLineupSVG(d)}</div>
+   <p class="small muted noprint" style="margin:0 0 6px">Tap a position on the field to pick its player.</p>
+   <div id="lu-pitch" class="lupitch">${luLineupSVG(d,'lu-tap',ui.luPick)}</div>
+   <div id="lu-picker">${ui.luPick!=null?luPickerHTML(d.slots,ui.luPick,roster,d.subs,'lu-pickp'):''}</div>
    <div class="card"><label for="lu-board">Attach a tactical setup (optional)</label><select id="lu-board"><option value="">None</option>${S.boards.filter(b=>b.format===d.format).map(b=>`<option value="${b.id}" ${b.id===d.board?'selected':''}>${esc(b.title)}</option>`).join('')}</select>
     <label for="lu-notes">Notes for the coach running it</label><textarea id="lu-notes" placeholder="Uniform, meet point, rotation plan, who takes kick-offs">${esc(d.notes)}</textarea></div>
    <p class="err" id="err"></p><div class="row"><button class="btn" data-act="lu-save">Save game day sheet</button>${d.id?`<button class="link danger" data-act="lu-delete" data-id="${d.id}">Delete</button>`:''}</div>
@@ -2920,7 +2939,8 @@ function luDetail(l){const ed=canEdit(l.team);const b=l.board&&S.boards.find(x=>
   <div class="noprint row wrapbtns"><button class="btn small" data-act="print-practice">Print or save as PDF</button>${ed?`<button class="btn small ghost" data-act="lu-edit" data-id="${l.id}">Edit</button><button class="btn small ghost" data-act="lu-copy" data-id="${l.id}">Reuse for next game</button>`:''}</div>
   <div class="noprint">${editBadge(l.team)}</div>
   ${sheetStatsCard(l)}
-  <div class="gdboard lusheet"><section><div class="lupitch">${luLineupSVG(l)}</div></section>
+  <div class="gdboard lusheet"><section>${ed?'<p class="small muted noprint" style="margin:0 0 6px">Tap a position to pick its player.</p>':''}<div class="lupitch">${luLineupSVG(l,ed?'luv-tap':'',ui.luvPick&&ui.luvPick.id===l.id?ui.luvPick.i:null)}</div>
+  ${ed&&ui.luvPick&&ui.luvPick.id===l.id?`<div class="noprint">${luPickerHTML(l.slots,ui.luvPick.i,luRoster(l.team),l.subs.map(x=>x.player_id),'luv-pickp')}</div>`:''}</section>
   <section><h3>Starting lineup</h3><table class="lutable">${starters}</table>
    <h3>Substitutes</h3><p>${subs.length?subs.join(', '):'<span class="muted">None listed</span>'}</p>
    ${l.notes?`<h3>Notes</h3><p>${esc(l.notes)}</p>`:''}</section></div>
@@ -3090,7 +3110,7 @@ document.addEventListener('change',e=>{const el=e.target;
   else if(ui.lu&&el.id==='lu-shape'){luSync();ui.lu.formation=el.value;luReshape(ui.lu);render()}
   else if(ui.lu&&el.id==='lu-team'){luSync();ui.lu.team=el.value;ui.lu.slots.forEach(s=>s.player_id='');ui.lu.subs=[];render()}
   else if(ui.lu&&(el.dataset.change==='lu-slot'||el.dataset.sub!==undefined)){luSync();const p=document.getElementById('lu-pitch');if(p)p.innerHTML=luLineupSVG(ui.lu);
-    if(el.dataset.change==='lu-slot'){const used=new Set(ui.lu.slots.map(s=>s.player_id).filter(Boolean));ui.lu.subs=ui.lu.subs.filter(id=>!used.has(id));const sb2=document.getElementById('lu-subs');if(sb2)sb2.innerHTML=luSubsHTML(ui.lu)}}
+    if(el.dataset.change==='lu-slot'){const used=new Set(ui.lu.slots.map(s=>s.player_id).filter(Boolean));ui.lu.subs=ui.lu.subs.filter(id=>!used.has(id));const y=window.scrollY;render();window.scrollTo(0,y)}}
 });
 
 /* ===== Practices and team assignments ===== */
@@ -3309,6 +3329,14 @@ async function practiceAct(a,ds){
       if(dup&&dup.active){toast(name+' is already on this roster.');break}
       if(dup){chk(await sb.from('roster').update({active:true}).eq('id',dup.id));dup.active=true;toast(name+' is back on the roster');tryKeep();break}
       const saved=chk(await sb.from('roster').insert({team_id:ds.t,name}).select().single());S.roster.push({id:saved.id,team:ds.t,name,number:'',active:true});toast(name+' added');tryKeep();break;}
+    case 'lu-tap':{luSync();const i=+ds.i;ui.luPick=ui.luPick===i?null:i;const y=window.scrollY;render();window.scrollTo(0,y);break;}
+    case 'lu-pickp':{luSync();const d=ui.lu,i=ui.luPick;if(ds.v==='close'||i==null||!d.slots[i]){ui.luPick=null}else{const was=d.slots[i].player_id;d.slots[i].player_id=ds.v;d.subs=d.subs.filter(id=>id!==ds.v);
+        ui.luPick=ds.v&&!was?luNextOpen(d.slots,i):ds.v?null:i}const y=window.scrollY;render();window.scrollTo(0,y);break;}
+    case 'luv-tap':{const i=+ds.i,l=S.lineups.find(x=>x.id===ui.luView);if(!l)break;ui.luvPick=ui.luvPick&&ui.luvPick.i===i?null:{id:l.id,i};const y=window.scrollY;render();window.scrollTo(0,y);break;}
+    case 'luv-pickp':{const P=ui.luvPick,l=P&&S.lineups.find(x=>x.id===P.id);if(!l||ds.v==='close'){ui.luvPick=null;render();break}
+      const slots=l.slots.map(s=>({...s})),was=slots[P.i].player_id;slots[P.i].player_id=ds.v||null;slots[P.i].name=ds.v?luPlayerName(ds.v):'';const subs=l.subs.filter(x=>x.player_id!==ds.v);
+      chk(await sb.from('lineups').update({slots,subs,updated_by:S.session.uid,updated_at:new Date().toISOString()}).eq('id',l.id));l.slots=slots;l.subs=subs;
+      const nx=ds.v&&!was?luNextOpen(slots,P.i):ds.v?null:P.i;ui.luvPick=nx==null?null:{id:l.id,i:nx};const y=window.scrollY;render();window.scrollTo(0,y);break;}
     case 'note-open':ui.noteOpen=ui.noteOpen===ds.v?null:ds.v;ui.noteDraft={};tryKeep();break;
     case 'note-tag':{const d=ui.noteDraft=ui.noteDraft||{};d.comment=val('nt-comment');d.team=val('nt-team');d.tag=d.tag===ds.v?null:ds.v;tryKeep();break;}
     case 'note-save':{const [k,id]=ds.v.split(':'),d=ui.noteDraft||{},comment=val('nt-comment').trim(),fit=val('nt-team')||null;
