@@ -32,7 +32,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:3px solid var(--brand);outline-offset:2px}
 .wrap{max-width:640px;margin:0 auto;padding:0 16px}
-main{max-width:640px;margin:0 auto;padding:16px 16px 110px}
+main{max-width:640px;margin:0 auto;padding:16px 16px 48px}
 .top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);border-bottom:1px solid var(--line)}
 .top .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:10px;padding-bottom:10px}
 .top h1{font-size:1.35rem}
@@ -40,7 +40,20 @@ main{max-width:640px;margin:0 auto;padding:16px 16px 110px}
 .link{background:none;border:0;color:var(--brand);font-weight:600;padding:8px 4px}
 .backbtn{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:8px 14px 8px 10px;margin:2px 0 8px;font-weight:700;color:var(--brand);font-size:15px;cursor:pointer}
 .backbtn::before{content:"";width:9px;height:9px;border-left:2.5px solid currentColor;border-bottom:2.5px solid currentColor;transform:rotate(45deg);margin-left:4px}
-.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabs{display:none}
+.ttl{min-width:0}.ttl h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.menu{position:relative;flex:0 0 auto}
+.menubtn{display:flex;align-items:center;gap:8px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:9px 12px;font:inherit;font-weight:700;min-height:44px;cursor:pointer}
+.menubtn:hover{border-color:var(--brand)}.menu.open .menubtn{border-color:var(--brand);box-shadow:0 0 0 2px color-mix(in srgb,var(--brand) 30%,transparent)}
+.mcaret{font-size:.8rem;color:var(--muted);transition:transform .15s}.menu.open .mcaret{transform:rotate(180deg)}
+.mico{width:1.4em;text-align:center}
+.mbadge{background:#D64545;color:#fff;border-radius:999px;font-size:.72rem;font-weight:800;padding:1px 7px;margin-left:auto}
+.menulist{display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:220px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:6px;box-shadow:0 12px 32px rgba(0,0,0,.28)}
+.menu.open .menulist{display:block}
+.menulist button{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;border-radius:10px;padding:12px 12px;font:inherit;font-weight:600;color:var(--ink);text-align:left;cursor:pointer;min-height:46px}
+.menulist button:hover,.menulist button:focus-visible{background:var(--soft);outline:none}
+.menulist button[aria-current="page"]{background:var(--soft);box-shadow:inset 3px 0 0 var(--brand)}
+.menusep{height:1px;background:var(--line);margin:6px 4px}.menulist .msignout{color:var(--muted);font-weight:500}
 .tabs .wrap{display:grid;grid-auto-flow:column;grid-auto-columns:1fr}
 .tabs button{background:none;border:0;padding:14px 4px;font-weight:600;color:var(--muted);border-top:3px solid transparent}
 .tabs button[aria-current="page"]{color:var(--ink);border-top-color:var(--brand)}
@@ -121,7 +134,7 @@ ol.kp li::before{content:counter(kp);width:22px;height:22px;border-radius:50%;ba
 .bands{display:flex;gap:16px;flex-wrap:wrap}
 .bands label{display:flex;align-items:center;gap:6px;font-weight:500;margin:4px 0}
 .bands input{width:auto}
-.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:12px 18px;border-radius:10px;font-weight:600;z-index:9;max-width:90vw;text-align:center}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:12px 18px;border-radius:10px;font-weight:600;z-index:9;max-width:90vw;text-align:center}
 
 /* ===== Live screens ===== */
 .login.wide{max-width:640px}
@@ -409,7 +422,7 @@ body.tb-fs{overflow:hidden;overscroll-behavior:none;position:fixed;left:0;right:
   body{font-size:16.5px}
   .wrap,main{max-width:1220px;padding-left:28px;padding-right:28px}
   main{padding-top:24px;padding-bottom:48px}
-  .top{position:static}
+  .top{position:sticky;top:0}
   .top h1{font-size:1.6rem}
   .tabs{position:sticky;top:0;bottom:auto;border-top:0;border-bottom:1px solid var(--line);padding-bottom:0}
   .tabs .wrap{grid-auto-columns:max-content;gap:6px}
@@ -2032,12 +2045,18 @@ function header(){
   if(s.role==='coach')sub='Coach '+esc(s.name);
   else{const c=S.children.find(c=>c.id===ui.child);sub=c?esc(c.name)+', '+esc((team(c.status==='active'?c.team:c.req)||{}).name||''):esc(s.email);
     if(S.children.length>1)sw=`<div class="chips kids" role="group" aria-label="Player">${S.children.map(c=>`<button class="chip" data-act="child" data-v="${c.id}" aria-pressed="${c.id===ui.child}">${esc(c.name)}</button>`).join('')}</div>`}
-  return `<header class="top"><div class="wrap"><div><h1>Lobos Training Lab</h1><p class="sub">${sub}</p></div><button class="link" data-act="logout">Sign out</button></div>${sw?`<div class="wrap kidsrow">${sw}</div>`:''}</header>`;
+  return `<header class="top"><div class="wrap"><div class="ttl"><h1>Lobos Training Lab</h1><p class="sub">${sub}</p></div>${nav()}</div>${sw?`<div class="wrap kidsrow">${sw}</div>`:''}</header>`;
 }
-function nav(){
-  const tabs=S.session.role==='coach'?[['plans','Plans'],['practices','Practices'],['gameday','Game day'],['homework','Reps'],['squad','Squad'+(S.pending.length?` (${S.pending.length})`:'')],['board','Leaderboard']]:[['today','Today'],['games','Games'],['board','Leaderboard'],['badges','Badges'],['family','Family']];
-  return `<nav class="tabs" aria-label="Sections"><div class="wrap">${tabs.map(([v,l])=>{const sh={practices:'Practice',gameday:'Games',board:'Ranks'}[v];return `<button data-act="nav" data-v="${v}" ${ui.view===v?'aria-current="page"':''}>${sh?`<span class="tl">${l}</span><span class="ts">${sh}</span>`:l}</button>`}).join('')}</div></nav>`;
-}
+/* Main menu: one dropdown button in the header, the same on phone, iPad and computer. */
+function navTabs(){return S.session.role==='coach'?[['plans','Plans','\u{1F4CB}'],['practices','Practices','\u26BD'],['gameday','Game day','\u{1F3DF}\uFE0F'],['homework','Reps','\u{1F501}'],['squad','Squad','\u{1F465}',S.pending.length],['board','Leaderboard','\u{1F3C6}']]
+  :[['today','Today','\u2600\uFE0F'],['games','Games','\u{1F3DF}\uFE0F'],['board','Leaderboard','\u{1F3C6}'],['badges','Badges','\u{1F3C5}'],['family','Family','\u{1F46A}']]}
+function nav(){const tabs=navTabs(),cur=tabs.find(t=>t[0]===ui.view)||tabs[0],badge=tabs.reduce((n,t)=>n+(t[3]||0),0);
+  return `<nav class="menu" aria-label="Sections"><button class="menubtn" data-act="menu" aria-haspopup="true" aria-expanded="false"><span class="mico" aria-hidden="true">${cur[2]}</span><span class="mcur">${cur[1]}</span>${badge?`<span class="mbadge" aria-label="${badge} waiting">${badge}</span>`:''}<span class="mcaret" aria-hidden="true">\u25BE</span></button>
+    <div class="menulist" role="menu">${tabs.map(([v,l,ic,n])=>`<button role="menuitem" data-act="nav" data-v="${v}" ${ui.view===v?'aria-current="page"':''}><span class="mico" aria-hidden="true">${ic}</span><span>${l}</span>${n?`<span class="mbadge">${n}</span>`:''}</button>`).join('')}
+    <div class="menusep"></div><button role="menuitem" class="msignout" data-act="logout"><span class="mico" aria-hidden="true">\u21AA\uFE0F</span><span>Sign out</span></button></div></nav>`}
+function menuClose(){document.querySelectorAll('.menu.open').forEach(m=>{m.classList.remove('open');const b=m.querySelector('.menubtn');if(b)b.setAttribute('aria-expanded','false')})}
+document.addEventListener('click',e=>{if(!e.target.closest||!e.target.closest('.menu'))menuClose()},true);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')menuClose()});
 let lastRenderView=null;
 // Horizontal button rows (teams, formats, filters) keep their scroll spot after a redraw,
 // and the selected button is nudged into view if it's off screen.
@@ -2057,7 +2076,7 @@ function render(){setTimeout(dgEditing,0);if(ui.peek&&!(ui.view==='practices'&&u
   if(coach&&ui.view==='plans'&&!S.plans.length&&!ui.edit)body=starterView();
   if(!coach&&ui.view!=='family'){const c=S.children.find(c=>c.id===ui.child);if(!c||c.status!=='active')body=pendingView(c)}
   const keepX=lastRenderView===ui.view?[...app.querySelectorAll('.chips')].map(el=>[el.getAttribute('aria-label')||'',el.scrollLeft]):[];
-  app.innerHTML=header()+nav()+`<main>${body||views[ui.view]()}</main>`;lastRenderView=ui.view;restoreChips(app,keepX);
+  app.innerHTML=header()+`<main>${body||views[ui.view]()}</main>`;lastRenderView=ui.view;restoreChips(app,keepX);
 }
 const err=(m,id='err')=>{const e=document.getElementById(id);if(e)e.textContent=m};
 const val=id=>(document.getElementById(id)?.value||'').trim();
@@ -3407,6 +3426,7 @@ async function act(a,ds){
     case 'link-again':ui.linkSent=null;render();break;
     case 'oauth':{const {error}=await sb.auth.signInWithOAuth({provider:ds.v,options:{redirectTo:location.origin+location.pathname}});if(error)err(friendly(error));break;}
     case 'logout':await sb.auth.signOut();resetState();BOOT.state='ready';render();break;
+    case 'menu':{const m=document.querySelector('.menu');if(m){const o=!m.classList.contains('open');menuClose();if(o){m.classList.add('open');m.querySelector('.menubtn').setAttribute('aria-expanded','true');const f=m.querySelector('.menulist [aria-current]')||m.querySelector('.menulist button');if(f)f.focus({preventScroll:true})}}break;}
     case 'nav':ui.view=ds.v;ui.plan=null;ui.edit=null;ui.scan=null;ui.prefill=null;ui.dg=null;ui.practice=null;ui.pedit=null;ui.draft=null;render();window.scrollTo(0,0);break;
     case 'board-scope':ui.boardScope=ds.v;render();break;
     case 'theme':ui.theme=ds.v;render();break;
