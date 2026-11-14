@@ -197,6 +197,8 @@ details.card summary{cursor:pointer}
 .tbfs .tbgroup{position:absolute;left:50%;transform:translateX(-50%);bottom:max(8px,env(safe-area-inset-bottom));z-index:2;color:var(--ink)}
 .impmap{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 10px;padding:8px 0;border-top:1px solid var(--line);margin:0;font-weight:400}
 .impmap>span{flex:1 1 200px}.impmap select{flex:1 1 160px;max-width:240px;margin:0}
+.addrsrc{font-size:.72rem;font-weight:700;border-radius:999px;padding:1px 8px;margin-left:4px;background:#ECEFF4;color:#4A5568;white-space:nowrap}
+.addrsrc.ok{background:#E3F5E8;color:#1E7B34}.addrsrc.chk{background:#FFF4D6;color:#8A5A00}
 .impteam{font-weight:700;margin:4px 0 2px}
 .retbig{font-size:1.6rem;font-weight:800}
 .retbar{height:10px;border-radius:999px;background:var(--line);overflow:hidden;margin:0 0 10px}.retbar i{display:block;height:100%;background:#1E7B34;border-radius:999px}
@@ -2660,7 +2662,7 @@ function gsRow(o,ourKey){const key=(ourKey||'lobos').toLowerCase();const home=gs
   if(isHome===null&&!hOurs&&!aOurs){if(home&&!away)isHome=false;else if(away&&!home)isHome=true}const opp=isHome===false?home:away;
   let result='';const sc=String(o.result||'').match(/(\d{1,2})\s*[-–:]\s*(\d{1,2})/);
   if(sc&&isHome!==null){const us=isHome?+sc[1]:+sc[2],them=isHome?+sc[2]:+sc[1];result=`${us}-${them} ${us>them?'W':us<them?'L':'D'}`}
-  return {day:o.day,kickoff:o.kickoff||'',opponent:opp,home:isHome,location:gsClean(o.location),result,status:o.status||'',check:isHome===null||!opp||!o.day}}
+  return {day:o.day,kickoff:o.kickoff||'',opponent:opp,home:isHome,location:gsClean(o.location),result,status:o.status||'',ourName:isHome===true?home:isHome===false?away:'',check:isHome===null||!opp||!o.day}}
 // Pasted text: works whether the copy kept table cells (tabs) or flattened them into lines.
 function gsParseText(text,ourKey){const toks=String(text||'').replace(/\r/g,'').split(/\t|\n/).map(s=>s.trim()).filter(Boolean);const recs=[];let cur=null;
   for(let i=0;i<toks.length;i++){const t=toks[i];
@@ -2765,6 +2767,29 @@ function impGuessTeam(txt){const s=String(txt||'');const remembered=impMapLoad()
   const g=girls?'Girls':'Boys';const ab=(tail.match(/\b([AB])\b(?!\d)/)||[])[1];
   let c=S.teams.filter(t=>teamU(t.id)===age&&teamG(t.id)===g);if(ab&&c.length>1){const x=c.filter(t=>new RegExp('\\b'+ab+'$').test(t.name));if(x.length)c=x}
   return c.length?{id:c[0].id,sure:c.length===1}:{id:'',sure:false}}
+/* Fields Lobos teams play at. Matched by park name, whatever field number follows. */
+const FIELD_DIR=[
+  [/bear\s*creek/i,'Bear Creek Pioneers Park, 3535 War Memorial St, Houston, TX 77084'],
+  [/meyer\s*park/i,'Meyer Park, 7700 Cypresswood Dr, Spring, TX 77379'],
+  [/memorial\s*park|coh\s*memorial/i,'Memorial Park, 6501 Memorial Dr, Houston, TX 77007'],
+  [/glenn\s*lakes|cpgl/i,'Community Park, 1700 Glenn Lakes Ln, Missouri City, TX 77489'],
+  [/cullen\s*park/i,'Cullen Park, 19008 Saums Rd, Houston, TX 77084'],
+  [/el\s*franco\s*lee/i,'El Franco Lee Park, 9400 Hall Rd, Houston, TX 77089']];
+const fieldPark=loc=>String(loc||'').split(/\s+-\s+|\s+[–—]\s+/)[0].replace(/\s+(field|fld|sb|az)\b.*$/i,'').trim();
+function fieldDir(loc){const s=String(loc||'');for(const [re,a] of FIELD_DIR)if(re.test(s))return a;return ''}
+// Not in the list or saved yet: look the park up on OpenStreetMap (one at a time, as their rules ask).
+async function fieldLookup(loc){const q=fieldPark(loc);if(!q)return '';
+  try{const u='https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=1&countrycodes=us&viewbox=-96.3,30.4,-94.6,29.2&bounded=1&q='+encodeURIComponent(q);
+    const r=await fetch(u,{headers:{'Accept':'application/json'}});if(!r.ok)return '';const j=await r.json();const h=j&&j[0];if(!h)return '';const a=h.address||{};
+    const street=[a.house_number,a.road].filter(Boolean).join(' ');const city=a.city||a.town||a.village||a.suburb||a.county||'';
+    const name=h.name||q;return [name,street,city,[a.state==='Texas'?'TX':a.state,a.postcode].filter(Boolean).join(' ')].filter(Boolean).join(', ')}catch(e){return ''}}
+async function impAutoAddr(){const d=ui.imp;if(!d||d.autoBusy)return;d.src=d.src||{};d.tried=d.tried||{};
+  const todo=[...new Set(d.rows.filter(r=>r.on&&r.location).map(r=>vkey(r.location)))].filter(k=>!d.addr[k]&&!d.tried[k]);if(!todo.length)return;
+  d.autoBusy=true;const parks={};
+  for(const k of todo){if(ui.imp!==d)break;d.tried[k]=true;const loc=(d.rows.find(r=>vkey(r.location)===k)||{}).location;const pk=vpark(fieldPark(loc));
+    let a=parks[pk];if(a===undefined){a=parks[pk]=await fieldLookup(loc);await new Promise(r=>setTimeout(r,1100))}
+    if(a&&ui.imp===d&&!d.addr[k]){impSync();if(!d.addr[k]){d.addr[k]=a;d.src[k]='auto';if(d.step==='review'){const y=window.scrollY;render();window.scrollTo(0,y)}}}}
+  d.autoBusy=false}
 // Field names match even if a dash or space is missing (screenshots sometimes drop them).
 const vkey=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
 // Same park, different field number (Field 7 and Field 8): reuse that park's address.
@@ -2776,16 +2801,18 @@ function impWords(data){if(data.words&&data.words.length)return data.words;const
 function impDup(t,g){return S.lineups.find(l=>l.team===t&&l.day===g.day&&(!g.opponent||!l.opponent||l.opponent.toLowerCase().slice(0,12)===g.opponent.toLowerCase().slice(0,12)||l.kickoff===g.kickoff))}
 const impTeamOf=(d,r)=>r.teamText!=null?(d.map[r.teamText]||''):d.team;
 function impRecheck(d){d.rows.forEach(r=>{const t=impTeamOf(d,r);const was=r.dup;r.dup=!!(t&&impDup(t,r));if(r.dup)r.on=false;else if(was)r.on=r.status!=='Forfeit'})}
-function impSetRows(rows){const d=ui.imp;d.map=d.map||{};d.sure=d.sure||{};const seen=new Set(d.rows.map(r=>(r.teamText||'')+'|'+r.day+'|'+r.opponent.toLowerCase()));
+function impSetRows(rows){const d=ui.imp;d.map=d.map||{};d.sure=d.sure||{};
+  rows.forEach(r=>{if(r.teamText==null&&d.team==='all')r.teamText=gsClean(r.ourName)||'Bayou City Lobos'});const seen=new Set(d.rows.map(r=>(r.teamText||'')+'|'+r.day+'|'+r.opponent.toLowerCase()));
   rows.forEach(r=>{if(r.teamText!=null&&d.map[r.teamText]==null){const g=impGuessTeam(r.teamText);d.map[r.teamText]=g.id;d.sure[r.teamText]=g.sure}});
   rows.forEach(r=>{const k=(r.teamText||'')+'|'+r.day+'|'+r.opponent.toLowerCase();if(seen.has(k))return;seen.add(k);const t=impTeamOf(d,r);r.dup=!!(t&&impDup(t,r));r.on=!r.dup&&r.status!=='Forfeit';d.rows.push(r)});
   d.multi=d.rows.some(r=>r.teamText!=null);
   const km=k=>{const m=String(k||'').match(/(\d{1,2}):(\d{2})\s*([AP])/i);return m?String((+m[1]%12+(/p/i.test(m[3])?12:0))*60+(+m[2])).padStart(4,'0'):'9999'};
-  d.rows.sort((a,b)=>(a.day+km(a.kickoff)).localeCompare(b.day+km(b.kickoff)));(d.rows).forEach(r=>{const k=vkey(r.location);if(k&&d.addr[k]==null)d.addr[k]=venueAddr(r.location)})}
+  d.rows.sort((a,b)=>(a.day+km(a.kickoff)).localeCompare(b.day+km(b.kickoff)));d.src=d.src||{};(d.rows).forEach(r=>{const k=vkey(r.location);if(!k||d.addr[k])return;const saved=venueAddr(r.location);if(saved){d.addr[k]=saved;d.src[k]='saved';return}const dir=fieldDir(r.location);if(dir){d.addr[k]=dir;d.src[k]='dir'}else d.addr[k]=''});
+  setTimeout(impAutoAddr,50)}
 function importView(){const d=ui.imp,eds=favTeams().filter(t=>canEdit(t.id));
   const top=`<button class="backbtn" data-act="imp-cancel">Schedule</button><h2>Paste schedule</h2>`;
   if(d.step==='input')return `${top}<div class="card">
-    <label for="imp-team">Team <span class="muted small">(skipped when the schedule has a Lobos Team column)</span></label><select id="imp-team">${eds.map(t=>`<option value="${t.id}" ${t.id===d.team?'selected':''}>${teamLabel(t)}</option>`).join('')}</select>
+    <label for="imp-team">Team</label><select id="imp-team"><option value="all" ${d.team==='all'?'selected':''}>All teams (sort each game to its team)</option>${eds.map(t=>`<option value="${t.id}" ${t.id===d.team?'selected':''}>${teamLabel(t)}</option>`).join('')}</select>
     <label for="imp-text">Paste the schedule</label>
     <textarea id="imp-text" rows="8" placeholder="Paste a GotSport schedule, or the rows of a club schedule spreadsheet (Date, Coach, Kickoff, League, Lobos Team, Opponent, Home/Away, Location).">${esc(d.text||'')}</textarea>
     <p class="small muted" style="margin:4px 0 10px">Works for one team's season or a whole club weekend. When there's a Lobos Team column, each game goes to its own team. You check everything before it's saved.</p>
@@ -2808,8 +2835,10 @@ function importView(){const d=ui.imp,eds=favTeams().filter(t=>canEdit(t.id));
       <label>Home or away<select data-imp="${i}|home"><option value="1" ${r.home===true?'selected':''}>Home</option><option value="0" ${r.home===false?'selected':''}>Away</option><option value="" ${r.home==null?'selected':''}>Not sure</option></select></label></div>
     <label>Opponent<input data-imp="${i}|opponent" value="${esc(r.opponent)}"></label>
     <label>Field<input data-imp="${i}|location" value="${esc(r.location)}"></label></div>`).join('')}</div>
-  ${locs.length?`<div class="card"><h3 style="margin-top:0">Field addresses</h3><p class="small muted" style="margin:0 0 6px">For the Apple Maps, Google Maps and Waze buttons. The site remembers each field, so you only type it once.</p>
-    ${locs.map(l=>`<label>${esc(l)}<input data-impaddr="${esc(vkey(l))}" value="${esc((d.addr[vkey(l)]!=null?d.addr[vkey(l)]:(S.venues||{})[vkey(l)])||'')}" placeholder="Street address, city"></label>`).join('')}</div>`:''}
+  ${locs.length?`<div class="card"><h3 style="margin-top:0">Field addresses</h3><p class="small muted" style="margin:0 0 6px">Filled in for you where the site knows the park. Fix anything that's off; the site remembers each field for next time.</p>
+    ${locs.map(l=>{const k=vkey(l),v=(d.addr[k]!=null?d.addr[k]:(S.venues||{})[k])||'',src=(d.src||{})[k];
+      const tag=!v?(d.autoBusy&&!(d.tried||{})[k]?'<span class="addrsrc">Looking it up…</span>':'<span class="addrsrc chk">Type the address</span>'):src==='saved'?'<span class="addrsrc">Saved</span>':src==='dir'?'<span class="addrsrc ok">Lobos field list</span>':src==='auto'?'<span class="addrsrc chk">Found on the map, check it</span>':'';
+      return `<label>${esc(l)} ${tag}<input data-impaddr="${esc(k)}" value="${esc(v)}" placeholder="Street address, city"></label>`}).join('')}</div>`:''}
   <p class="err" id="err"></p><div class="row wrapbtns"><button class="btn" data-act="imp-save" ${on?'':'disabled'}>Add ${on} game${on===1?'':'s'}</button><button class="btn ghost" data-act="imp-back">Paste more</button></div>`}
 function impSync(){const d=ui.imp;if(!d)return;const g=id=>document.getElementById(id);if(g('imp-team'))d.team=g('imp-team').value;if(g('imp-text'))d.text=g('imp-text').value;
   document.querySelectorAll('[data-imp]').forEach(el=>{const [i,k]=el.dataset.imp.split('|'),r=d.rows[+i];if(!r)return;
@@ -2930,7 +2959,7 @@ function gamedayView(){
 async function gamedayAct(a,ds){
   switch(a){
     case 'gd-sub':ui.gd=ds.v;ui.tb=null;ui.lu=null;ui.luView=null;render();return true;
-    case 'imp-open':{const eds=favTeams().filter(t=>canEdit(t.id));if(!eds.length)return true;ui.imp={step:'input',team:(!ui.schAll&&canEdit(ui.team))?ui.team:eds[0].id,text:'',rows:[],addr:{},map:{},sure:{}};render();window.scrollTo(0,0);return true;}
+    case 'imp-open':{const eds=favTeams().filter(t=>canEdit(t.id));if(!eds.length)return true;ui.imp={step:'input',team:(!ui.schAll&&canEdit(ui.team))?ui.team:'all',text:'',rows:[],addr:{},map:{},sure:{}};render();window.scrollTo(0,0);return true;}
     case 'imp-cancel':ui.imp=null;render();return true;
     case 'imp-back':impSync();ui.imp.step='input';ui.imp.text='';render();return true;
     case 'imp-read':{impSync();const d=ui.imp;d.error='';const tb=tbParse(d.text);const rows=tb.length?tb:gsParseText(d.text,impKey(d.team));
@@ -3046,7 +3075,7 @@ document.addEventListener('change',e=>{const el=e.target;
   if(ui.imp&&el.id==='imp-shots'&&el.files&&el.files.length){impSync();impShots([...el.files]);return}
   if(ui.imp&&el.id==='imp-team'){impSync();if(ui.imp.rows)impRecheck(ui.imp);return}
   if(ui.imp&&el.dataset&&(el.dataset.imp!==undefined)){impSync();if(el.dataset.imp.endsWith('|on')){const y=window.scrollY;render();window.scrollTo(0,y)}return}
-  if(ui.imp&&el.dataset&&el.dataset.impaddr!==undefined){impSync();const d=ui.imp,v=el.value.trim();if(!v)return;
+  if(ui.imp&&el.dataset&&el.dataset.impaddr!==undefined){impSync();const d=ui.imp,v=el.value.trim();(d.src=d.src||{})[el.dataset.impaddr]='typed';if(!v)return;
     const locOf=k=>(d.rows.find(r=>vkey(r.location)===k)||{}).location||'',park=vpark(locOf(el.dataset.impaddr));let n=0;
     document.querySelectorAll('[data-impaddr]').forEach(o=>{if(o!==el&&!o.value.trim()&&vpark(locOf(o.dataset.impaddr))===park){o.value=v;d.addr[o.dataset.impaddr]=v;n++}});return}
   if(ui.st&&el.dataset&&el.dataset.stat!==undefined){ui.st.dirty=true;stSync();return}
