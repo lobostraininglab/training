@@ -195,6 +195,9 @@ details.card summary{cursor:pointer}
 .attmine{padding:6px 0;border-top:1px solid var(--line);font-size:.9rem}
 .tbgroup{display:flex;align-items:center;gap:10px;justify-content:space-between;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px 10px;margin:6px 0;font-weight:700;font-size:.9rem}
 .tbfs .tbgroup{position:absolute;left:50%;transform:translateX(-50%);bottom:max(8px,env(safe-area-inset-bottom));z-index:2;color:var(--ink)}
+.impmap{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 10px;padding:8px 0;border-top:1px solid var(--line);margin:0;font-weight:400}
+.impmap>span{flex:1 1 200px}.impmap select{flex:1 1 160px;max-width:240px;margin:0}
+.impteam{font-weight:700;margin:4px 0 2px}
 .retbig{font-size:1.6rem;font-weight:800}
 .retbar{height:10px;border-radius:999px;background:var(--line);overflow:hidden;margin:0 0 10px}.retbar i{display:block;height:100%;background:#1E7B34;border-radius:999px}
 .retgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
@@ -2703,6 +2706,65 @@ function gsParseWords(words,ourKey){const W=words.filter(w=>w.text&&w.text.trim(
   return out}
 
 
+/* ----- Club-wide schedules: a table with a column for which Lobos team plays (Date, Coach, Kickoff, League, Lobos Team, Opponent, Home/Away, Location).
+   Works from copied spreadsheet cells, an .xlsx or .csv file, or a screenshot. Each game goes to its own team. ----- */
+const TB_DATE=/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/;
+const TB_DAYN=/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*\.?$/i;
+function tbDay(v){v=String(v||'').trim();if(/^\d{5}(\.\d+)?$/.test(v)){const d=new Date(Date.UTC(1899,11,30)+Math.floor(+v)*864e5);return d.toISOString().slice(0,10)}
+  const m=v.match(TB_DATE);if(m){const y=m[3].length===2?2000+(+m[3]):+m[3];return `${y}-${String(+m[1]).padStart(2,'0')}-${String(+m[2]).padStart(2,'0')}`}return gsDay(v)}
+function tbKick(v){v=String(v||'').trim();if(/^0?\.\d+$/.test(v)){let mins=Math.round(+v*1440),h=Math.floor(mins/60),mm=mins%60;const ap=h>=12?'PM':'AM';h=h%12||12;return `${h}:${String(mm).padStart(2,'0')} ${ap}`}
+  const m=v.match(/(\d{1,2}):(\d{2})\s*([AP])\.?\s*M/i);return m?`${+m[1]}:${m[2]} ${m[3].toUpperCase()}M`:''}
+const TB_COLS={day:/^date$/i,dow:/^day$/i,coach:/coach/i,kickoff:/kick|^time|start/i,league:/league|comp/i,team:/lobos|our team|^team$|club team/i,opponent:/opponent|^vs|versus|against/i,home:/home|h\/a/i,location:/location|field|venue|park|where/i};
+function tbRow(o){const day=tbDay(o.day);if(!day)return null;const ha=String(o.home||'').trim();
+  const forfeit=/^forf/i.test(String(o.coach||'').trim())||/forf/i.test(o.status||'');
+  return {day,kickoff:tbKick(o.kickoff),opponent:gsClean(o.opponent),home:/^home/i.test(ha)?true:/^away/i.test(ha)?false:null,location:gsClean(o.location),result:'',
+    status:forfeit?'Forfeit':'',teamText:gsClean(o.team),coach:forfeit?'':gsClean(o.coach),league:gsClean(o.league),check:!o.opponent||!/^(home|away)/i.test(ha)}}
+// Cells separated by tabs (copied from Excel, Numbers or Google Sheets) with a header row.
+function tbParseCells(lines){let hi=-1,map=null;
+  for(let i=0;i<lines.length&&i<15;i++){const c=lines[i];const m={};c.forEach((h,j)=>{const t=String(h).trim();for(const k in TB_COLS)if(m[k]==null&&TB_COLS[k].test(t)&&!(k==='home'&&/location/i.test(t))){m[k]=j;break}});
+    if(m.day!=null&&m.team!=null&&(m.opponent!=null||m.location!=null)){hi=i;map=m;break}}
+  if(hi<0)return [];
+  return lines.slice(hi+1).map(c=>{const o={};for(const k in map)o[k]=c[map[k]]==null?'':String(c[map[k]]);return o.team?tbRow(o):null}).filter(Boolean)}
+// One game per line with spaces only (a screenshot, or a copy that lost its cells):
+// 11/14/26 Saturday Ciri 9:15 AM H-Town Bayou City Lady Lobos U10G Houston Surf ... Away Meyer Park - Field 11
+function tbParseLine(line){const t=line.trim().split(/\s+/);if(!t.length)return null;const d0=t[0].replace(/[^\d\/]/g,'');if(!TB_DATE.test(d0))return null;
+  let i=1;if(TB_DAYN.test(t[i]||''))i++;const rest=t.slice(i).join(' ');
+  const m=rest.match(/^(.*?)\s*(\d{1,2}:\d{2}\s*[AP]\.?\s*M\.?)\s+(\S+)\s+(.*)$/i);if(!m)return null;
+  const tm=m[4].match(/^(.*?\blobos\s+[A-Z]{0,2}\d[\w\/]*(?:\s+D\d)?)\s+(.*)$/i);if(!tm)return null;
+  const ha=tm[2].match(/^(.*?)\s+(Home|Away)\b\s*(.*)$/i);
+  return tbRow({day:d0,coach:m[1],kickoff:m[2],league:m[3],team:tm[1],opponent:ha?ha[1]:tm[2],home:ha?ha[2]:'',location:ha?ha[3]:''})}
+function tbParse(text){const raw=String(text||'').replace(/\r/g,'').split('\n');
+  if(raw.some(l=>l.includes('\t'))){const r=tbParseCells(raw.map(l=>l.split('\t')));if(r.length)return r}
+  return raw.map(tbParseLine).filter(Boolean)}
+function csvRows(text){const rows=[];let row=[],cell='',q=false;for(let i=0;i<text.length;i++){const ch=text[i];
+  if(q){if(ch==='"'){if(text[i+1]==='"'){cell+='"';i++}else q=false}else cell+=ch}
+  else if(ch==='"')q=true;else if(ch===','){row.push(cell);cell=''}else if(ch==='\n'||ch==='\r'){if(ch==='\r'&&text[i+1]==='\n')i++;row.push(cell);rows.push(row);row=[];cell=''}else cell+=ch}
+  if(cell||row.length){row.push(cell);rows.push(row)}return rows}
+// Minimal .xlsx reader: first worksheet, cell text and numbers.
+async function xlsxRows(buf){const dv=new DataView(buf),u8=new Uint8Array(buf);let e=-1;for(let i=u8.length-22;i>=0&&i>u8.length-70000;i--)if(dv.getUint32(i,true)===0x06054b50){e=i;break}
+  if(e<0)throw new Error('That file doesn’t look like a spreadsheet.');
+  const n=dv.getUint16(e+10,true);let p=dv.getUint32(e+16,true);const files={};const td=new TextDecoder();
+  for(let k=0;k<n;k++){const method=dv.getUint16(p+10,true),csize=dv.getUint32(p+20,true),nl=dv.getUint16(p+28,true),xl=dv.getUint16(p+30,true),cl=dv.getUint16(p+32,true),off=dv.getUint32(p+42,true);
+    const name=td.decode(u8.subarray(p+46,p+46+nl));files[name]={method,csize,off};p+=46+nl+xl+cl}
+  const read=async name=>{const f=files[name];if(!f)return '';const ln=dv.getUint16(f.off+26,true),lx=dv.getUint16(f.off+28,true),st=f.off+30+ln+lx;const data=u8.subarray(st,st+f.csize);
+    if(f.method===0)return td.decode(data);const ds=new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));return await new Response(ds).text()};
+  const X=t=>new DOMParser().parseFromString(t,'application/xml');
+  const ss=[...X(await read('xl/sharedStrings.xml')||'<sst/>').getElementsByTagName('si')].map(si=>[...si.getElementsByTagName('t')].map(t=>t.textContent).join(''));
+  const sheet=Object.keys(files).filter(f=>/^xl\/worksheets\/sheet\d+\.xml$/.test(f)).sort()[0];if(!sheet)throw new Error('No sheet found in that file.');
+  const col=r=>{let c=0;for(const ch of r.replace(/\d+/g,''))c=c*26+(ch.charCodeAt(0)-64);return c-1};
+  return [...X(await read(sheet)).getElementsByTagName('row')].map(row=>{const out=[];[...row.getElementsByTagName('c')].forEach(c=>{const t=c.getAttribute('t'),v=c.getElementsByTagName('v')[0];
+    let val=t==='s'?ss[+(v&&v.textContent)]||'':t==='inlineStr'?[...c.getElementsByTagName('t')].map(x=>x.textContent).join(''):(v?v.textContent:'');out[col(c.getAttribute('r')||'A')]=val});
+    return Array.from(out,x=>x==null?'':x)})}
+// Which site team is "Bayou City Lady Lobos U10G" or "Lobos B2013/14 D2"? Remembered once a coach picks.
+function impMapLoad(){try{return JSON.parse(localStorage.getItem('lobos.impTeamMap')||'{}')}catch(e){return {}}}
+function impMapSave(m){try{localStorage.setItem('lobos.impTeamMap',JSON.stringify(m))}catch(e){}}
+function impGuessTeam(txt){const s=String(txt||'');const remembered=impMapLoad()[s.toLowerCase()];if(remembered&&team(remembered))return {id:remembered,sure:true};
+  const tail=s.replace(/.*\blobos\b/i,'');const girls=/lady|girl/i.test(s)||/\bG\s?20\d\d|\bU\d+\s?G\b|\bG$/i.test(tail);
+  let age='';const u=tail.match(/U\s?(\d{1,2})/i);if(u)age='U'+(+u[1]);else{const ys=(tail.match(/20\d\d|\/\d\d\b/g)||[]).map(y=>y.startsWith('/')?2000+(+y.slice(1)):+y);
+    if(ys.length){const d=new Date(),end=d.getMonth()>=7?d.getFullYear()+1:d.getFullYear();age='U'+(end-Math.max(...ys))}}
+  const g=girls?'Girls':'Boys';const ab=(tail.match(/\b([AB])\b(?!\d)/)||[])[1];
+  let c=S.teams.filter(t=>teamU(t.id)===age&&teamG(t.id)===g);if(ab&&c.length>1){const x=c.filter(t=>new RegExp('\\b'+ab+'$').test(t.name));if(x.length)c=x}
+  return c.length?{id:c[0].id,sure:c.length===1}:{id:'',sure:false}}
 // Field names match even if a dash or space is missing (screenshots sometimes drop them).
 const vkey=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
 // Same park, different field number (Field 7 and Field 8): reuse that park's address.
@@ -2712,25 +2774,36 @@ const impKey=t=>{const n=(team(t)||{}).name||'';return 'lobos'};
 function impWords(data){if(data.words&&data.words.length)return data.words;const out=[];
   (data.blocks||[]).forEach(b=>(b.paragraphs||[]).forEach(p=>(p.lines||[]).forEach(l=>(l.words||[]).forEach(w=>out.push(w)))));return out}
 function impDup(t,g){return S.lineups.find(l=>l.team===t&&l.day===g.day&&(!g.opponent||!l.opponent||l.opponent.toLowerCase().slice(0,12)===g.opponent.toLowerCase().slice(0,12)||l.kickoff===g.kickoff))}
-function impSetRows(rows){const d=ui.imp,seen=new Set(d.rows.map(r=>r.day+'|'+r.opponent.toLowerCase()));
-  rows.forEach(r=>{const k=r.day+'|'+r.opponent.toLowerCase();if(seen.has(k))return;seen.add(k);r.on=!impDup(d.team,r);r.dup=!r.on;d.rows.push(r)});
-  d.rows.sort((a,b)=>(a.day+a.kickoff).localeCompare(b.day+b.kickoff));(d.rows).forEach(r=>{const k=vkey(r.location);if(k&&d.addr[k]==null)d.addr[k]=venueAddr(r.location)})}
+const impTeamOf=(d,r)=>r.teamText!=null?(d.map[r.teamText]||''):d.team;
+function impRecheck(d){d.rows.forEach(r=>{const t=impTeamOf(d,r);const was=r.dup;r.dup=!!(t&&impDup(t,r));if(r.dup)r.on=false;else if(was)r.on=r.status!=='Forfeit'})}
+function impSetRows(rows){const d=ui.imp;d.map=d.map||{};d.sure=d.sure||{};const seen=new Set(d.rows.map(r=>(r.teamText||'')+'|'+r.day+'|'+r.opponent.toLowerCase()));
+  rows.forEach(r=>{if(r.teamText!=null&&d.map[r.teamText]==null){const g=impGuessTeam(r.teamText);d.map[r.teamText]=g.id;d.sure[r.teamText]=g.sure}});
+  rows.forEach(r=>{const k=(r.teamText||'')+'|'+r.day+'|'+r.opponent.toLowerCase();if(seen.has(k))return;seen.add(k);const t=impTeamOf(d,r);r.dup=!!(t&&impDup(t,r));r.on=!r.dup&&r.status!=='Forfeit';d.rows.push(r)});
+  d.multi=d.rows.some(r=>r.teamText!=null);
+  const km=k=>{const m=String(k||'').match(/(\d{1,2}):(\d{2})\s*([AP])/i);return m?String((+m[1]%12+(/p/i.test(m[3])?12:0))*60+(+m[2])).padStart(4,'0'):'9999'};
+  d.rows.sort((a,b)=>(a.day+km(a.kickoff)).localeCompare(b.day+km(b.kickoff)));(d.rows).forEach(r=>{const k=vkey(r.location);if(k&&d.addr[k]==null)d.addr[k]=venueAddr(r.location)})}
 function importView(){const d=ui.imp,eds=favTeams().filter(t=>canEdit(t.id));
   const top=`<button class="backbtn" data-act="imp-cancel">Schedule</button><h2>Paste schedule</h2>`;
   if(d.step==='input')return `${top}<div class="card">
-    <label for="imp-team">Team</label><select id="imp-team">${eds.map(t=>`<option value="${t.id}" ${t.id===d.team?'selected':''}>${teamLabel(t)}</option>`).join('')}</select>
+    <label for="imp-team">Team <span class="muted small">(skipped when the schedule has a Lobos Team column)</span></label><select id="imp-team">${eds.map(t=>`<option value="${t.id}" ${t.id===d.team?'selected':''}>${teamLabel(t)}</option>`).join('')}</select>
     <label for="imp-text">Paste the schedule</label>
-    <textarea id="imp-text" rows="8" placeholder="On the GotSport schedule page, select all the games, copy, and paste here.">${esc(d.text||'')}</textarea>
-    <p class="small muted" style="margin:4px 0 10px">Copy the whole season at once. The site splits it into separate games, and you check them before anything is saved.</p>
+    <textarea id="imp-text" rows="8" placeholder="Paste a GotSport schedule, or the rows of a club schedule spreadsheet (Date, Coach, Kickoff, League, Lobos Team, Opponent, Home/Away, Location).">${esc(d.text||'')}</textarea>
+    <p class="small muted" style="margin:4px 0 10px">Works for one team's season or a whole club weekend. When there's a Lobos Team column, each game goes to its own team. You check everything before it's saved.</p>
     <div class="row wrapbtns"><button class="btn" data-act="imp-read">Read schedule</button>
+    <label class="btn ghost" style="cursor:pointer">Open .xlsx or .csv<input type="file" id="imp-file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden></label>
     <label class="btn ghost" style="cursor:pointer">Use screenshots<input type="file" id="imp-shots" accept="image/*" multiple hidden></label></div>
     ${d.busy?`<p class="small" style="margin-top:10px">${esc(d.busy)}</p><div class="bar"><b id="impbar" style="width:${d.pct||0}%"></b></div>`:''}
     <p class="err" id="err">${esc(d.error||'')}</p></div>`;
-  const on=d.rows.filter(r=>r.on).length,locs=[];const seenL=new Set();d.rows.filter(r=>r.on&&r.location).forEach(r=>{const k=vkey(r.location);if(!seenL.has(k)){seenL.add(k);locs.push(r.location)}});
-  return `${top}<p class="muted small">${esc(team(d.team).name)}: ${d.rows.length} game${d.rows.length===1?'':'s'} found. Check each one, fix anything that looks off, then add them.</p>
+  const on=d.rows.filter(r=>r.on&&impTeamOf(d,r)).length,locs=[];const seenL=new Set();d.rows.filter(r=>r.on&&r.location).forEach(r=>{const k=vkey(r.location);if(!seenL.has(k)){seenL.add(k);locs.push(r.location)}});
+  const texts=[...new Set(d.rows.filter(r=>r.teamText!=null).map(r=>r.teamText))],edt=S.teams.filter(t=>canEdit(t.id));
+  const mapCard=d.multi?`<div class="card"><h3 style="margin-top:0">Which team is which</h3><p class="small muted" style="margin:0 0 6px">Check that each schedule name points to the right team on the site. Your picks are remembered for next time.</p>
+    ${texts.map(x=>{const n=d.rows.filter(r=>r.teamText===x).length,v=d.map[x]||'';return `<label class="impmap ${v&&d.sure[x]?'':'chk'}"><span>${esc(x)} <span class="small muted">(${n} game${n===1?'':'s'})</span>${v&&d.sure[x]?'':' <span class="pill late">Check</span>'}</span>
+      <select data-impmap="${esc(x)}"><option value="">Skip, not on the site</option>${edt.map(t=>`<option value="${t.id}" ${t.id===v?'selected':''}>${esc(t.name)}</option>`).join('')}</select></label>`}).join('')}</div>`:'';
+  return `${top}<p class="muted small">${d.multi?`${d.rows.length} game${d.rows.length===1?'':'s'} for ${texts.length} team${texts.length===1?'':'s'}`:`${esc(team(d.team).name)}: ${d.rows.length} game${d.rows.length===1?'':'s'}`} found. Check each one, fix anything that looks off, then add them.</p>${mapCard}
   <div class="implist">${d.rows.map((r,i)=>`<div class="card improw ${r.on?'':'off'} ${r.check?'chk':''}">
     <div class="row between"><label class="check" style="margin:0"><input type="checkbox" data-imp="${i}|on" ${r.on?'checked':''}> <strong>${esc(fmtDay(r.day))}</strong></label>
-      <span>${r.dup?'<span class="pill">Already on the site</span>':''}${r.result?`<span class="pill ${/W$/.test(r.result)?'done':/L$/.test(r.result)?'late':''}">${esc(r.result)}${r.status?' ('+esc(r.status)+')':''}</span>`:''}${r.check?'<span class="pill late">Check this one</span>':''}</span></div>
+      <span>${r.status==='Forfeit'?'<span class="pill late">Forfeit</span>':''}${r.teamText!=null&&!impTeamOf(d,r)?'<span class="pill">Skipped</span>':''}${r.dup?'<span class="pill">Already on the site</span>':''}${r.result?`<span class="pill ${/W$/.test(r.result)?'done':/L$/.test(r.result)?'late':''}">${esc(r.result)}${r.status?' ('+esc(r.status)+')':''}</span>`:''}${r.check?'<span class="pill late">Check this one</span>':''}</span></div>
+    ${r.teamText!=null?`<div class="impteam">${impTeamOf(d,r)?esc(team(impTeamOf(d,r)).name):'<span class="muted">Not added</span>'}${r.coach?` <span class="small muted">· Coach ${esc(r.coach)}</span>`:''}${r.league?` <span class="small muted">· ${esc(r.league)}</span>`:''}</div>`:''}
     <div class="impgrid"><label>Date<input type="date" data-imp="${i}|day" value="${esc(r.day)}"></label><label>Kickoff<input data-imp="${i}|kickoff" value="${esc(r.kickoff)}" placeholder="9:30 AM"></label>
       <label>Home or away<select data-imp="${i}|home"><option value="1" ${r.home===true?'selected':''}>Home</option><option value="0" ${r.home===false?'selected':''}>Away</option><option value="" ${r.home==null?'selected':''}>Not sure</option></select></label></div>
     <label>Opponent<input data-imp="${i}|opponent" value="${esc(r.opponent)}"></label>
@@ -2747,23 +2820,25 @@ async function impShots(files){const d=ui.imp;d.error='';d.busy='Loading the tex
     for(let i=0;i<files.length;i++){d.busy=`Reading screenshot ${i+1} of ${files.length}…`;d.pct=0;render();
       const img=await shrinkImage(files[i],2600);
       const r=await window.Tesseract.recognize(img,'eng',{logger:m=>{if(m.status==='recognizing text'){d.pct=Math.round(m.progress*100);const b=document.getElementById('impbar');if(b)b.style.width=d.pct+'%'}}});
-      let rows=gsParseWords(impWords(r.data||{}),impKey(d.team));if(!rows.length)rows=gsParseText(r.data&&r.data.text||'',impKey(d.team));found.push(...rows)}
+      let rows=tbParse(r.data&&r.data.text||'');if(!rows.length)rows=gsParseWords(impWords(r.data||{}),impKey(d.team));if(!rows.length)rows=gsParseText(r.data&&r.data.text||'',impKey(d.team));found.push(...rows)}
     d.busy='';if(!found.length){d.error='Couldn’t find any games in those screenshots. Make sure the dates, teams and fields are showing, or paste the text instead.';return render()}
     d.rows=d.rows||[];impSetRows(found);d.step='review';render();window.scrollTo(0,0)}
   catch(e){d.busy='';d.error=e.message||'Something went wrong reading the screenshots.';render()}}
-async function impSave(){impSync();const d=ui.imp,rows=d.rows.filter(r=>r.on);
+async function impSave(){impSync();const d=ui.imp,rows=d.rows.filter(r=>r.on&&impTeamOf(d,r));
   for(const r of rows)if(!/^\d{4}-\d{2}-\d{2}$/.test(r.day))return err('One of the games is missing its date.');
   if(busy)return;busy=true;let n=0;
   try{const vrows=Object.entries(d.addr).filter(([k,v])=>v&&v!==(S.venues||{})[k]).map(([k,v])=>({name:(d.rows.find(r=>vkey(r.location)===k)||{}).location||k,address:v,updated_by:S.session.uid,updated_at:new Date().toISOString()}));
     if(vrows.length){const {error}=await sb.from('venues').upsert(vrows,{onConflict:'name'});if(!error)vrows.forEach(v=>{S.venues[vkey(v.name)]=v.address;(S.venueNames=S.venueNames||{})[vkey(v.name)]=v.name})}
-    for(const r of rows){if(impDup(d.team,r))continue;const base=luNewDraft(d.team);
-      const notes=[r.home===true?'Home game':r.home===false?'Away game':'',r.result?`Final: ${r.result.replace(/ ([WLD])$/,' ($1)')}${r.status?', '+r.status:''}`:''].filter(Boolean).join('. ');
-      const row={team_id:d.team,day:r.day,kickoff:r.kickoff||null,opponent:r.opponent||null,location:r.location||null,address:d.addr[vkey(r.location)]||(S.venues||{})[vkey(r.location)]||null,format:base.format,formation:base.formation,
+    const teamsHit=new Set();if(d.multi){const m=impMapLoad();for(const x in d.map)if(d.map[x])m[x.toLowerCase()]=d.map[x];impMapSave(m)}
+    for(const r of rows){const tid=impTeamOf(d,r);if(!canEdit(tid)||impDup(tid,r))continue;const base=luNewDraft(tid);
+      const notes=[r.home===true?'Home game':r.home===false?'Away game':'',r.league?r.league:'',r.coach?'Coach: '+r.coach:'',r.status==='Forfeit'&&!r.result?'Forfeit':'',r.result?`Final: ${r.result.replace(/ ([WLD])$/,' ($1)')}${r.status?', '+r.status:''}`:''].filter(Boolean).join('. ');
+      teamsHit.add(tid);const row={team_id:tid,day:r.day,kickoff:r.kickoff||null,opponent:r.opponent||null,location:r.location||null,address:d.addr[vkey(r.location)]||(S.venues||{})[vkey(r.location)]||null,format:base.format,formation:base.formation,
         slots:base.slots.map(sl=>({pos:sl.pos,x:sl.x,y:sl.y,player_id:null,name:''})),subs:[],notes:notes||null,created_by:S.session.uid,updated_by:S.session.uid,updated_at:new Date().toISOString()};
       let res=await sb.from('lineups').insert(row).select().single();
       if(res.error&&/address/i.test(res.error.message||'')){delete row.address;res=await sb.from('lineups').insert(row).select().single()}
       const saved=chk(res);S.lineups=[mapLineup(saved),...S.lineups];n++}
-    ui.imp=null;ui.gd='sched';ui.schAll=false;ui.team=d.team;render();window.scrollTo(0,0);toast(`Added ${n} game${n===1?'':'s'} to ${team(d.team).name}`)}
+    const one=teamsHit.size===1?[...teamsHit][0]:null;ui.imp=null;ui.gd='sched';ui.schAll=!one;if(one)ui.team=one;render();window.scrollTo(0,0);
+    toast(one?`Added ${n} game${n===1?'':'s'} to ${team(one).name}`:`Added ${n} game${n===1?'':'s'} across ${teamsHit.size} teams`)}
   catch(e){toast(e.message||'Could not save the games');render()}finally{busy=false}}
 /* ----- Game schedule (coaches: every team; parents: their child's team). No lineups here. ----- */
 function gamesHTML(list,o){const T=today();const days=[];list.forEach(g=>{let d=days[days.length-1];if(!d||d.day!==g.day)days.push(d={day:g.day,gs:[]});d.gs.push(g)});
@@ -2855,10 +2930,10 @@ function gamedayView(){
 async function gamedayAct(a,ds){
   switch(a){
     case 'gd-sub':ui.gd=ds.v;ui.tb=null;ui.lu=null;ui.luView=null;render();return true;
-    case 'imp-open':{const eds=favTeams().filter(t=>canEdit(t.id));if(!eds.length)return true;ui.imp={step:'input',team:(!ui.schAll&&canEdit(ui.team))?ui.team:eds[0].id,text:'',rows:[],addr:{}};render();window.scrollTo(0,0);return true;}
+    case 'imp-open':{const eds=favTeams().filter(t=>canEdit(t.id));if(!eds.length)return true;ui.imp={step:'input',team:(!ui.schAll&&canEdit(ui.team))?ui.team:eds[0].id,text:'',rows:[],addr:{},map:{},sure:{}};render();window.scrollTo(0,0);return true;}
     case 'imp-cancel':ui.imp=null;render();return true;
     case 'imp-back':impSync();ui.imp.step='input';ui.imp.text='';render();return true;
-    case 'imp-read':{impSync();const d=ui.imp;d.error='';const rows=gsParseText(d.text,impKey(d.team));
+    case 'imp-read':{impSync();const d=ui.imp;d.error='';const tb=tbParse(d.text);const rows=tb.length?tb:gsParseText(d.text,impKey(d.team));
       if(!rows.length){d.error='Couldn\u2019t find any games in that text. Make sure the dates are included when you copy, or try screenshots.';render();return true}
       impSetRows(rows);d.step='review';render();window.scrollTo(0,0);return true;}
     case 'imp-save':await impSave();return true;
@@ -2962,8 +3037,14 @@ document.addEventListener('change',e=>{const el=e.target;
   if(el.dataset&&el.dataset.retsel!==undefined){const t=el.dataset.retsel;ui.retSel=ui.retSel||{};const l=new Set(ui.retSel[t]||[]);el.checked?l.add(el.value):l.delete(el.value);ui.retSel[t]=[...l];tryKeep();return}
   if(ui.tryImp&&el.dataset&&el.dataset.trymap!==undefined){ui.tryImp.map[+el.dataset.trymap]=el.value;tryKeep();return}
   if(ui.tryImp&&el.id==='ti-file'&&el.files&&el.files[0]){el.files[0].text().then(t=>{ui.tryImp.text=t;const rows=tryParseTable(t);if(rows.length<2){ui.tryImp.error='That file has no responses in it.';render();return}ui.tryImp.rows=rows;ui.tryImp.map=rows[0].map(tryGuess);render()});return}
+  if(ui.imp&&el.id==='imp-file'&&el.files&&el.files[0]){impSync();const f=el.files[0],d=ui.imp;d.error='';
+    (async()=>{try{const rows=/\.csv$/i.test(f.name)||/csv/.test(f.type)?csvRows(await f.text()):await xlsxRows(await f.arrayBuffer());
+      const text=rows.map(r=>r.join('\t')).join('\n');let g=tbParse(text);if(!g.length)g=gsParseText(text,impKey(d.team));
+      if(!g.length){d.error='Couldn\u2019t find games in that file. It needs a header row with Date, Lobos Team and Opponent (or Location).';render();return}
+      impSetRows(g);d.step='review';render();window.scrollTo(0,0)}catch(x){d.error=x.message||'Could not open that file.';render()}})();return}
+  if(ui.imp&&el.dataset&&el.dataset.impmap!==undefined){impSync();const d=ui.imp;d.map[el.dataset.impmap]=el.value;d.sure[el.dataset.impmap]=true;impRecheck(d);const y=window.scrollY;render();window.scrollTo(0,y);return}
   if(ui.imp&&el.id==='imp-shots'&&el.files&&el.files.length){impSync();impShots([...el.files]);return}
-  if(ui.imp&&el.id==='imp-team'){impSync();if(ui.imp.rows)ui.imp.rows.forEach(r=>{r.dup=!!impDup(ui.imp.team,r);if(r.dup)r.on=false});return}
+  if(ui.imp&&el.id==='imp-team'){impSync();if(ui.imp.rows)impRecheck(ui.imp);return}
   if(ui.imp&&el.dataset&&(el.dataset.imp!==undefined)){impSync();if(el.dataset.imp.endsWith('|on')){const y=window.scrollY;render();window.scrollTo(0,y)}return}
   if(ui.imp&&el.dataset&&el.dataset.impaddr!==undefined){impSync();const d=ui.imp,v=el.value.trim();if(!v)return;
     const locOf=k=>(d.rows.find(r=>vkey(r.location)===k)||{}).location||'',park=vpark(locOf(el.dataset.impaddr));let n=0;
